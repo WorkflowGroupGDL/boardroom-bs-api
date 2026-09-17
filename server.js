@@ -172,5 +172,97 @@ app.get('/api/profile', (req, res) => {
     }
 });
 
+// --- MPRESAS: Crear o Vincular una Empresa ---
+app.post('/api/companies', async (req, res) => {
+  const { name, domain } = req.body;
+
+  try {
+    const response = await hubspotClient.crm.companies.basicApi.create({
+      properties: { name, domain }
+    });
+    return res.status(201).json({ success: true, company: response });
+  } catch (error) {
+    console.error('Error creando empresa:', error.body || error);
+    return res.status(500).json({ success: false, message: 'Error creando empresa en HubSpot.' });
+  }
+});
+
+// --- NEGOCIOS (DEALS): Registrar Oportunidades o Inscripciones ---
+app.post('/api/deals', async (req, res) => {
+  const { dealname, amount, pipeline, dealstage, contactId } = req.body;
+
+  try {
+    // Crear el negocio
+    const dealResponse = await hubspotClient.crm.deals.basicApi.create({
+      properties: {
+        dealname: dealname,
+        amount: amount || '0',
+        pipeline: pipeline || 'default',
+        dealstage: dealstage || 'appointmentscheduled'
+      }
+    });
+
+    // Asociar el negocio con el Contacto si se provee contactId
+    if (contactId) {
+      await hubspotClient.crm.associations.v4.basicApi.createDefault(
+        'deal',
+        dealResponse.id,
+        'contact',
+        contactId
+      );
+    }
+
+    return res.status(201).json({ success: true, deal: dealResponse });
+  } catch (error) {
+    console.error('Error creando negocio:', error.body || error);
+    return res.status(500).json({ success: false, message: 'Error creando oportunidad en HubSpot.' });
+  }
+});
+
+// --- TICKETS: Sistema de Soporte o Consultas Alumnos ---
+app.post('/api/tickets', async (req, res) => {
+  const { subject, content, hs_ticket_priority, contactId } = req.body;
+
+  try {
+    const ticketResponse = await hubspotClient.crm.tickets.basicApi.create({
+      properties: {
+        hs_pipeline: '0',
+        hs_pipeline_stage: '1',
+        subject: subject,
+        content: content,
+        hs_ticket_priority: hs_ticket_priority || 'HIGH'
+      }
+    });
+
+    if (contactId) {
+      await hubspotClient.crm.associations.v4.basicApi.createDefault(
+        'ticket',
+        ticketResponse.id,
+        'contact',
+        contactId
+      );
+    }
+
+    return res.status(201).json({ success: true, ticket: ticketResponse });
+  } catch (error) {
+    console.error('Error creando ticket:', error.body || error);
+    return res.status(500).json({ success: false, message: 'Error creando ticket en HubSpot.' });
+  }
+});
+
+// --- WEBHOOKS: Recibir actualizaciones desde HubSpot ---
+app.post('/api/webhooks/hubspot', (req, res) => {
+  const events = req.body; // HubSpot envía un array de eventos
+
+  events.forEach(event => {
+    console.log(`Evento de HubSpot recibido [${event.subscriptionType}]:`, event);
+    // Ejemplo: Si un alumno cambió de programa o estatus en HubSpot CRM, 
+    // puedes actualizar tu base de datos local o invalidar sesiones cacheadas.
+  });
+
+  // Responder 200 OK inmediatamente para confirmar recepción a HubSpot
+  res.status(200).send('EVENT_RECEIVED');
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Backend API escuchando en puerto ${PORT}`));
