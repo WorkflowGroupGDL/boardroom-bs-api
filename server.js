@@ -21,7 +21,7 @@ const hubspotClient = new hubspot.Client({ accessToken: process.env.HUBSPOT_ACCE
 
 const CONTACT_PROPERTIES = [
     'email', 'firstname', 'lastname', 'password_hash',
-    'phone', 'jobtitle', 'company', 'field_of_study', 'hs_registration_method', 'matricula_escolar'
+    'phone', 'jobtitle', 'company', 'field_of_study', 'military_status', 'matricula_escolar'
 ];
 
 // Endpoint de prueba / healthcheck
@@ -60,7 +60,7 @@ app.post('/api/register', async (req, res) => {
       await hubspotClient.crm.contacts.basicApi.update(existingContact.id, {
         properties: {
           password_hash: hashedPassword,
-          hs_registration_method: 'Activo',
+          military_status: 'Activo',
           ...(firstname && { firstname }),
           ...(lastname && { lastname })
         }
@@ -75,7 +75,7 @@ app.post('/api/register', async (req, res) => {
       firstname: firstname || '',
       lastname: lastname || '',
       password_hash: hashedPassword,
-      hs_registration_method: 'Activo'
+      military_status: 'Activo'
     };
 
     const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
@@ -142,7 +142,7 @@ app.post('/api/login', async (req, res) => {
             jobtitle: contact.properties.jobtitle || '',
             company: contact.properties.company || '',
             field_of_study: contact.properties.field_of_study || '',
-            hs_registration_method: contact.properties.hs_registration_method || 'Activo',
+            military_status: contact.properties.military_status || 'Activo',
             matricula_escolar: contact.properties.matricula_escolar || ''
         };
 
