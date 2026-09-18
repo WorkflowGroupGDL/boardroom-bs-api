@@ -21,7 +21,7 @@ const hubspotClient = new hubspot.Client({ accessToken: process.env.HUBSPOT_ACCE
 
 const CONTACT_PROPERTIES = [
     'email', 'firstname', 'lastname', 'password_hash',
-    'phone', 'jobtitle', 'company', 'program', 'userstatus', 'matricula_escolar'
+    'phone', 'jobtitle', 'company', 'field_of_study', 'hs_registration_method', 'matricula_escolar'
 ];
 
 // Endpoint de prueba / healthcheck
@@ -58,7 +58,7 @@ app.post('/api/register', async (req, res) => {
 
             const updateProperties = {
                 password_hash: hashedPassword,
-                userstatus: 'Activo'
+                hs_registration_method: 'Activo'
             };
             if (firstname) updateProperties.firstname = firstname;
             if (lastname) updateProperties.lastname = lastname;
@@ -76,7 +76,7 @@ app.post('/api/register', async (req, res) => {
             firstname: firstname || '',
             lastname: lastname || '',
             password_hash: hashedPassword,
-            userstatus: 'Activo'
+            hs_registration_method: 'Activo'
         };
 
         const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
@@ -136,8 +136,8 @@ app.post('/api/login', async (req, res) => {
             phone: contact.properties.phone || '',
             jobtitle: contact.properties.jobtitle || '',
             company: contact.properties.company || '',
-            program: contact.properties.program || '',
-            userstatus: contact.properties.userstatus || 'Activo',
+            field_of_study: contact.properties.field_of_study || '',
+            hs_registration_method: contact.properties.hs_registration_method || 'Activo',
             matricula_escolar: contact.properties.matricula_escolar || ''
         };
 
