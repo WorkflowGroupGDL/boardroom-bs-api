@@ -60,7 +60,7 @@ app.post('/api/register', async (req, res) => {
       await hubspotClient.crm.contacts.basicApi.update(existingContact.id, {
         properties: {
           password_hash: hashedPassword,
-          userstatus: 'Activo',
+          hs_registration_method: 'Activo',
           ...(firstname && { firstname }),
           ...(lastname && { lastname })
         }
@@ -75,7 +75,7 @@ app.post('/api/register', async (req, res) => {
       firstname: firstname || '',
       lastname: lastname || '',
       password_hash: hashedPassword,
-      userstatus: 'Activo'
+      hs_registration_method: 'Activo'
     };
 
     const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
