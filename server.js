@@ -31,66 +31,71 @@ app.get('/api/health', (req, res) => {
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
-    const { email, password, firstname, lastname } = req.body;
+  const { email, password, firstname, lastname } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
-    }
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
+  }
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const cleanEmail = email.trim().toLowerCase();
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const cleanEmail = email.trim().toLowerCase();
 
-        const searchRequest = {
-            filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-            properties: CONTACT_PROPERTIES,
-            limit: 1
-        };
+    // 1. Buscar si el contacto existe
+    const searchRequest = {
+      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
+      properties: CONTACT_PROPERTIES,
+      limit: 1
+    };
 
-        const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
+    const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
 
-        if (searchResponse.results.length > 0) {
-            const existingContact = searchResponse.results[0];
+    if (searchResponse.results.length > 0) {
+      const existingContact = searchResponse.results[0];
 
-            if (existingContact.properties.password_hash) {
-                return res.status(409).json({ success: false, message: 'Este correo electrónico ya cuenta con una contraseña activada.' });
-            }
+      if (existingContact.properties.password_hash) {
+        return res.status(409).json({ success: false, message: 'Este correo ya tiene acceso activado.' });
+      }
 
-            const updateProperties = {
-                password_hash: hashedPassword,
-                hs_registration_method: 'Activo'
-            };
-            if (firstname) updateProperties.firstname = firstname;
-            if (lastname) updateProperties.lastname = lastname;
-
-            await hubspotClient.crm.contacts.basicApi.update(existingContact.id, { properties: updateProperties });
-
-            return res.status(200).json({
-                success: true,
-                message: 'Acceso activado con éxito. Ya puedes iniciar sesión.'
-            });
+      await hubspotClient.crm.contacts.basicApi.update(existingContact.id, {
+        properties: {
+          password_hash: hashedPassword,
+          userstatus: 'Activo',
+          ...(firstname && { firstname }),
+          ...(lastname && { lastname })
         }
+      });
 
-        const properties = {
-            email: cleanEmail,
-            firstname: firstname || '',
-            lastname: lastname || '',
-            password_hash: hashedPassword,
-            hs_registration_method: 'Activo'
-        };
-
-        const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
-
-        return res.status(201).json({
-            success: true,
-            message: 'Usuario registrado con éxito en el sistema.',
-            id: apiResponse.id
-        });
-
-    } catch (error) {
-        console.error('Error en registro:', error.body || error);
-        return res.status(500).json({ success: false, message: 'Error procesando la solicitud en HubSpot.' });
+      return res.status(200).json({ success: true, message: 'Acceso activado correctamente.' });
     }
+
+    // 2. Crear un nuevo contacto
+    const properties = {
+      email: cleanEmail,
+      firstname: firstname || '',
+      lastname: lastname || '',
+      password_hash: hashedPassword,
+      userstatus: 'Activo'
+    };
+
+    const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Usuario registrado con éxito.',
+      id: apiResponse.id
+    });
+
+  } catch (error) {
+    // ESTA LÍNEA MOSTRARÁ EL ERROR REAL EN RENDER
+    const hubspotError = error.body?.message || error.message || error;
+    console.error('CRÍTICO - Error HubSpot CRM:', JSON.stringify(error.body || error, null, 2));
+
+    return res.status(500).json({
+      success: false,
+      message: `Error en HubSpot: ${hubspotError}`
+    });
+  }
 });
 
 // --- API LOGIN ---
