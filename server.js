@@ -31,7 +31,7 @@ app.get('/api/health', (req, res) => {
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
-  const { email, password, firstname, lastname, mobilephone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
+  const { email, password, firstname, lastname, phone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
@@ -63,7 +63,7 @@ app.post('/api/register', async (req, res) => {
           military_status: 'Activo',
           ...(firstname && { firstname }),
           ...(lastname && { lastname }),
-          ...(mobilephone && { mobilephone }),
+          ...(phone && { phone }),
           ...(city && { city }),
           ...(state && { state }),
           ...(country && { country }),
@@ -87,7 +87,7 @@ app.post('/api/register', async (req, res) => {
       lastname: lastname || '',
       password_hash: hashedPassword,
       military_status: 'Activo',
-      ...(mobilephone && { mobilephone }),
+      ...(phone && { phone }),
       ...(city && { city }),
       ...(state && { state }),
       ...(country && { country }),
@@ -160,7 +160,7 @@ app.post('/api/login', async (req, res) => {
             email: contact.properties.email,
             firstname: contact.properties.firstname || '',
             lastname: contact.properties.lastname || '',
-            mobilephone: contact.properties.mobilephone || '',
+            phone: contact.properties.phone || '',
             jobtitle: contact.properties.jobtitle || '',
             company: contact.properties.company || '',
             field_of_study: contact.properties.field_of_study || '',
