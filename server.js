@@ -22,7 +22,7 @@ const hubspotClient = new hubspot.Client({ accessToken: process.env.HUBSPOT_ACCE
 const CONTACT_PROPERTIES = [
     'email', 'firstname', 'lastname', 'password_hash',
   'phone', 'jobtitle', 'company', 'field_of_study', 'military_status', 'matricula_escolar', 'city', 'state',
-  'country', 'message', 'asunto', 'hs_linkedin_url','mobilephone','address','zip','website','linkedin_profile','facebook_profile','twitter_profile'
+  'country', 'message', 'asunto', 'hs_linkedin_url','mobilephone'
 ];
 
 // Endpoint de prueba / healthcheck
