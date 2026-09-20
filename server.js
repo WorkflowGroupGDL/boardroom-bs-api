@@ -21,7 +21,7 @@ const hubspotClient = new hubspot.Client({ accessToken: process.env.HUBSPOT_ACCE
 
 const CONTACT_PROPERTIES = [
     'email', 'firstname', 'lastname', 'password_hash',
-    'phone', 'jobtitle', 'company', 'field_of_study', 'military_status', 'matricula_escolar'
+    'mobilphone', 'jobtitle', 'company', 'field_of_study', 'military_status', 'matricula_escolar, city, state, country, message, asunto, hs_linkedin_url'
 ];
 
 // Endpoint de prueba / healthcheck
@@ -31,7 +31,7 @@ app.get('/api/health', (req, res) => {
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
-  const { email, password, firstname, lastname } = req.body;
+  const { email, password, firstname, lastname, mobilphone, city, state, country, message, jobtitle, company, field_of_study } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
@@ -62,7 +62,17 @@ app.post('/api/register', async (req, res) => {
           password_hash: hashedPassword,
           military_status: 'Activo',
           ...(firstname && { firstname }),
-          ...(lastname && { lastname })
+          ...(lastname && { lastname }),
+          ...(mobilphone && { mobilphone }),
+          ...(city && { city }),
+          ...(state && { state }),
+          ...(country && { country }),
+          ...(message && { message }),
+          ...(jobtitle && { jobtitle }),
+          ...(company && { company }),
+          ...(field_of_study && { field_of_study }),
+          ...(asunto && { asunto }),
+          ...(hs_linkedin_url && { hs_linkedin_url })
         }
       });
 
@@ -75,7 +85,17 @@ app.post('/api/register', async (req, res) => {
       firstname: firstname || '',
       lastname: lastname || '',
       password_hash: hashedPassword,
-      military_status: 'Activo'
+      military_status: 'Activo',
+      ...(mobilphone && { mobilphone }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(country && { country }),
+      ...(message && { message }),
+      ...(jobtitle && { jobtitle }),
+      ...(company && { company }),
+      ...(field_of_study && { field_of_study }),
+      ...(asunto && { asunto }),
+      ...(hs_linkedin_url && { hs_linkedin_url })
     };
 
     const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
@@ -138,7 +158,7 @@ app.post('/api/login', async (req, res) => {
             email: contact.properties.email,
             firstname: contact.properties.firstname || '',
             lastname: contact.properties.lastname || '',
-            phone: contact.properties.phone || '',
+            mobilphone: contact.properties.mobilphone || '',
             jobtitle: contact.properties.jobtitle || '',
             company: contact.properties.company || '',
             field_of_study: contact.properties.field_of_study || '',
@@ -177,7 +197,7 @@ app.get('/api/profile', (req, res) => {
     }
 });
 
-// --- MPRESAS: Crear o Vincular una Empresa ---
+// --- EMPRESAS: Crear o Vincular una Empresa ---
 app.post('/api/companies', async (req, res) => {
   const { name, domain } = req.body;
 
