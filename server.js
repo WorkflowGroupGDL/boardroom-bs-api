@@ -31,7 +31,7 @@ app.get('/api/health', (req, res) => {
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
-  const { email, password, firstname, lastname, mobilphone, city, state, country, message, jobtitle, company, field_of_study,asunto } = req.body;
+  const { email, password, firstname, lastname, mobilphone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
