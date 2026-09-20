@@ -160,15 +160,22 @@ app.post('/api/login', async (req, res) => {
             email: contact.properties.email,
             firstname: contact.properties.firstname || '',
             lastname: contact.properties.lastname || '',
-            mobilphone: contact.properties.mobilphone || '',
+            mobilephone: contact.properties.mobilephone || '',
             jobtitle: contact.properties.jobtitle || '',
             company: contact.properties.company || '',
             field_of_study: contact.properties.field_of_study || '',
             military_status: contact.properties.military_status || 'Activo',
-            matricula_escolar: contact.properties.matricula_escolar || ''
+            matricula_escolar: contact.properties.matricula_escolar || '',
+            city: contact.properties.city || '',
+            state: contact.properties.state || '',
+            country: contact.properties.country || '',
+            message: contact.properties.message || '',
+            asunto: contact.properties.asunto || '',
+            hs_linkedin_url: contact.properties.hs_linkedin_url || ''
         };
-
-        const token = jwt.sign(userData, JWT_SECRET, { expiresIn: '8h' });
+      
+      
+      const token = jwt.sign(userData, JWT_SECRET, { expiresIn: '8h' });
 
         return res.status(200).json({
             success: true,
