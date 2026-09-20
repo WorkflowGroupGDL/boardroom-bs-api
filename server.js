@@ -31,7 +31,7 @@ app.get('/api/health', (req, res) => {
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
-  const { email, password, firstname, lastname, mobilphone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
+  const { email, password, firstname, lastname, mobilephone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
@@ -63,7 +63,7 @@ app.post('/api/register', async (req, res) => {
           military_status: 'Activo',
           ...(firstname && { firstname }),
           ...(lastname && { lastname }),
-          ...(mobilphone && { mobilphone }),
+          ...(mobilephone && { mobilephone }),
           ...(city && { city }),
           ...(state && { state }),
           ...(country && { country }),
@@ -87,7 +87,7 @@ app.post('/api/register', async (req, res) => {
       lastname: lastname || '',
       password_hash: hashedPassword,
       military_status: 'Activo',
-      ...(mobilphone && { mobilphone }),
+      ...(mobilephone && { mobilephone }),
       ...(city && { city }),
       ...(state && { state }),
       ...(country && { country }),
