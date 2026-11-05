@@ -14,7 +14,7 @@
     "url_docente": "leticia-maldonado.html",
     "descripcion": "El Diplomado es un programa exclusivo de formación y liderazgo diseñado para potenciar el talento, la visión estratégica y la marca personal de las mujeres en la alta dirección, integrando herramientas de inteligencia emocional, negociación de alto nivel y empoderamiento empresarial.",
     "imagen": "assets/images/programas/mujer-dorada-ejecutiva.webp",
-    "url": "workshops.html",
+    "url": "#",
     "descripcion_larga": "​"
   },
   {
@@ -31,8 +31,8 @@
     "foto_docente": "james.webp",
     "url_docente": "james-lass.html",
     "descripcion": "El Diplomado Liderazgo Ejecutivo es un programa de alto rendimiento diseñado para directores y gerentes que buscan transformar su capacidad de gestión, optimizar la toma de decisiones estratégicas e inspirar a sus equipos hacia el logro de resultados excepcionales en entornos dinámicos.",
-    "imagen": "assets/images/networking.webp",
-    "url": "networking.html",
+    "imagen": "assets/images/meeting-04.jpg",
+    "url": "#",
     "descripcion_larga": ""
   },
   {
@@ -49,8 +49,26 @@
     "foto_docente": "james.webp",
     "url_docente": "james-lass.html",
     "descripcion": "El curso Marca Personal y Networking en Redes Sociales está diseñado para profesionales y empresarios que buscan fortalecer su posicionamiento, construir una reputación de autoridad, ampliar su red de contactos estratégicos y generar oportunidades de negocio mediante una presencia digital auténtica y efectiva.",
-    "imagen": "assets/images/networking.webp",
-    "url": "networking.html",
+    "imagen": "assets/images/meeting-03.jpg",
+    "url": "#",
+    "descripcion_larga": ""
+  },
+  {
+    "id": 4,
+    "titulo": "Essential Management Skills",
+    "fecha": "Proximamente",
+    "precio": "9,500 MXN",
+    "meses": "1 mes",
+    "horas": "8 horas",
+    "clases": "2 clases",
+    "modalidad": "Online",
+    "certificado": "Reconocimiento de participación",
+    "docente": "James Lass",
+    "foto_docente": "james.webp",
+    "url_docente": "james-lass.html",
+    "descripcion": "El curso Essential Management Skills está diseñado para profesionales y empresarios que buscan fortalecer sus habilidades de gestión, optimizar la toma de decisiones estratégicas e inspirar a sus equipos hacia el logro de resultados excepcionales en entornos dinámicos.",
+    "imagen": "assets/images/meeting-02.jpg",
+    "url": "#",
     "descripcion_larga": ""
   }
 ]
