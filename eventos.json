@@ -1,0 +1,46 @@
+[
+  {
+    "id": 1,
+    "titulo": "¿Tu PYME está lista para los cambios contables y financieros de 2027?",
+    "fecha": "2026-11-24",
+    "lugar": "Online",
+    "precio": "Gratis",
+    "descripcion": "​​Adoptar la NIIF para PYMES (3.ª Edición) y alinearte con las NIF Mexicanas no es solo un tema contable, es una decisión estratégica que impacta tus impuestos (LISR/CFF) y la valoración de tu empresa.",
+    "imagen": "assets/images/flyer/workshop1.webp",
+    "url": "workshops.html",
+    "descripcion_larga": "​​Adoptar la NIIF para PYMES (3.ª Edición) y alinearte con las NIF Mexicanas no es solo un tema contable, es una decisión estratégica que impacta tus impuestos (LISR/CFF) y la valoración de tu empresa. En este workshop, exploraremos los cambios contables y financieros que afectarán a las PYMES en 2027, brindándote herramientas prácticas para adaptarte y prosperar en el nuevo entorno económico."
+  },
+  {
+    "id": 2,
+    "titulo": "Networking 1.0 - Supervisores",
+    "fecha": "2027-01-19",
+    "lugar": "Av. de la Paz 2055, Col Americana, Lafayette, 44140 Guadalajara, Jal.",
+    "precio": "300 MXN",
+    "descripcion": "Exhibición de libros, firmas de autores y talleres de lectura.",
+    "imagen": "assets/images/networking.webp",
+    "url": "networking.html",
+    "descripcion_larga": "Únete a nuestro evento de networking exclusivo para supervisores, donde podrás conectar con profesionales de tu industria, compartir experiencias y establecer relaciones valiosas. Disfruta de una exhibición de libros, firmas de autores y talleres de lectura que enriquecerán tu perspectiva profesional. <br><br><b>Incluido Coffee Break, Cena, Demo Clase con metodo de caso estilo Harvard y Networking.</b>"
+  },
+  {
+    "id": 3,
+    "titulo": "Networking 1.1 - Mandos Medios",
+    "fecha": "2027-01-20",
+    "lugar": "Av. de la Paz 2055, Col Americana, Lafayette, 44140 Guadalajara, Jal.",
+    "precio": "300 MXN",
+    "descripcion": "Exhibición de libros, firmas de autores y talleres de lectura.",
+    "imagen": "assets/images/meeting-01.jpg",
+    "url": "networking.html",
+    "descripcion_larga": "Participa en nuestro evento de networking diseñado para mandos medios, donde tendrás la oportunidad de interactuar con colegas de tu sector, intercambiar ideas y fortalecer tu red profesional. Aprovecha la exhibición de libros, firmas de autores y talleres de lectura para enriquecer tu conocimiento y habilidades. <br><br><b>Incluido Coffee Break, Cena, Demo Clase con metodo de caso estilo Harvard y Networking.</b>"
+  },
+  {
+    "id": 4,
+    "titulo": "Networking 1.2 - Directivos & C-Level",
+    "fecha": "2027-01-21",
+    "lugar": "Av. de la Paz 2055, Col Americana, Lafayette, 44140 Guadalajara, Jal.",
+    "precio": "300 MXN",
+    "descripcion": "Exhibición de libros, firmas de autores y talleres de lectura.",
+    "imagen": "assets/images/meeting-02.jpg",
+    "url": "networking.html",
+    "descripcion_larga": "Asiste a nuestro evento de networking exclusivo para directivos y C-Level, donde podrás establecer conexiones estratégicas con líderes de la industria, compartir conocimientos y explorar oportunidades de colaboración. Disfruta de la exhibición de libros, firmas de autores y talleres de lectura que complementarán tu experiencia profesional. <br><br><b>Incluido Coffee Break, Cena, Demo Clase con metodo de caso estilo Harvard y Networking.</b>"
+  }
+]

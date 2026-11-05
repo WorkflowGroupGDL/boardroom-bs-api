@@ -4,6 +4,8 @@ const cors = require('cors');
 const hubspot = require('@hubspot/api-client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -32,6 +34,97 @@ app.get('/api/health', (req, res) => {
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
+  const { email, password, firstname, lastname, phone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Buscar si el contacto existe
+    const searchRequest = {
+      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
+      properties: CONTACT_PROPERTIES,
+      limit: 1
+    };
+
+    const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
+
+    if (searchResponse.results.length > 0) {
+      const existingContact = searchResponse.results[0];
+
+      if (existingContact.properties.password_hash) {
+        return res.status(409).json({ success: false, message: 'Este correo ya tiene acceso activado.' });
+      }
+
+      await hubspotClient.crm.contacts.basicApi.update(existingContact.id, {
+        properties: {
+          password_hash: hashedPassword,
+          military_status: 'Activo',
+          ...(firstname && { firstname }),
+          ...(lastname && { lastname }),
+          ...(phone && { phone }),
+          ...(city && { city }),
+          ...(state && { state }),
+          ...(country && { country }),
+          ...(message && { message }),
+          ...(asunto && { asunto }),
+          ...(jobtitle && { jobtitle }),
+          ...(company && { company }),
+          ...(field_of_study && { field_of_study }),
+          ...(asunto && { asunto }),
+          ...(hs_linkedin_url && { hs_linkedin_url })
+        }
+      });
+
+      return res.status(200).json({ success: true, message: 'Acceso activado correctamente.' });
+    }
+
+    // 2. Crear un nuevo contacto
+    const properties = {
+      email: cleanEmail,
+      firstname: firstname || '',
+      lastname: lastname || '',
+      password_hash: hashedPassword,
+      military_status: 'Activo',
+      ...(phone && { phone }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(country && { country }),
+      ...(message && { message }),
+      ...(asunto && { asunto }),
+      ...(jobtitle && { jobtitle }),
+      ...(company && { company }),
+      ...(field_of_study && { field_of_study }),
+      ...(asunto && { asunto }),
+      ...(hs_linkedin_url && { hs_linkedin_url })
+    };
+
+    const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Usuario registrado con éxito.',
+      id: apiResponse.id
+    });
+
+  } catch (error) {
+    // ESTA LÍNEA MOSTRARÁ EL ERROR REAL EN RENDER
+    const hubspotError = error.body?.message || error.message || error;
+    console.error('CRÍTICO - Error HubSpot CRM:', JSON.stringify(error.body || error, null, 2));
+
+    return res.status(500).json({
+      success: false,
+      message: `Error en HubSpot: ${hubspotError}`
+    });
+  }
+});
+
+// --- API REGISTRO IN-HOUSE ---
+app.post('/api/reginhouse', async (req, res) => {
   const { email, password, firstname, lastname, phone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
 
   if (!email || !password) {
@@ -298,6 +391,19 @@ app.post('/api/webhooks/hubspot', (req, res) => {
   // Responder 200 OK inmediatamente para confirmar recepción a HubSpot
   res.status(200).send('EVENT_RECEIVED');
 });
+
+// LEER EVENTOS
+app.get('/api/eventos', (req, res) => {
+  const rutaArchivo = path.join(__dirname, 'eventos.json');
+  
+  fs.readFile(rutaArchivo, 'utf8', (err, data) => {
+    if (err) {
+      return res.status(500).json({ error: 'No se pudo leer la base de datos de eventos.' });
+    }
+    res.json(JSON.parse(data));
+  });
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Backend API escuchando en puerto ${PORT}`));
