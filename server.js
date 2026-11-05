@@ -404,6 +404,18 @@ app.get('/api/eventos', (req, res) => {
   });
 });
 
+// LEER CURSOS
+app.get('/api/cursos', (req, res) => {
+  const rutaArchivo = path.join(__dirname, 'cursos.json');
+  
+  fs.readFile(rutaArchivo, 'utf8', (err, data) => {
+    if (err) {
+      return res.status(500).json({ error: 'No se pudo leer la base de datos de cursos.' });
+    }
+    res.json(JSON.parse(data));
+  });
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Backend API escuchando en puerto ${PORT}`));
