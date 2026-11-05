@@ -34,14 +34,13 @@
     "imagen": "assets/images/networking.webp",
     "url": "networking.html",
     "descripcion_larga": ""
-  }
-  ,
+  },
   {
     "id": 3,
-    "titulo": "Marca Personal y Networking in Redes Sociales",
+    "titulo": "Marca Personal y Networking",
     "fecha": "Proximamente",
     "precio": "4,500 MXN",
-    "meses": "1 meses",
+    "meses": "1 mes",
     "horas": "6 horas",
     "clases": "3 clases",
     "modalidad": "Online",
@@ -49,7 +48,7 @@
     "docente": "James Lass",
     "foto_docente": "james.webp",
     "url_docente": "james-lass.html",
-    "descripcion": "El Diplomado Liderazgo Ejecutivo es un programa de alto rendimiento diseñado para directores y gerentes que buscan transformar su capacidad de gestión, optimizar la toma de decisiones estratégicas e inspirar a sus equipos hacia el logro de resultados excepcionales en entornos dinámicos.",
+    "descripcion": "El curso Marca Personal y Networking en Redes Sociales es un programa estratégico diseñado para profesionales, empresarios y directivos que buscan fortalecer su posicionamiento, construir una marca personal de autoridad, ampliar su red de contactos estratégicos y desarrollar relaciones profesionales de alto valor mediante el uso inteligente de las redes sociales para potenciar su influencia y oportunidades de negocio.",
     "imagen": "assets/images/networking.webp",
     "url": "networking.html",
     "descripcion_larga": ""
