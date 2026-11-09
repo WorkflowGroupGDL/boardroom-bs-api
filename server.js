@@ -6,8 +6,24 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
+const DATA_FILE = path.join(__dirname, 'blogs.json');
+const { Pool } = require('pg');
 
 const app = express();
+
+const DBUser = process.env.DBUser || 'boardroom_secret_key_2026';
+const DBHost = process.env.DBHost || 'boardroom_secret_key_2026';
+const DBB = process.env.DBB || 'boardroom_secret_key_2026';
+const DBPass = process.env.DBPass || 'boardroom_secret_key_2026';
+const DBPort = process.env.DBPort || 'boardroom_secret_key_2026';
+
+const pool = new Pool({
+  user: DBUser,
+  host: DBHost,
+  database: DBB,
+  password: DBPass,
+  port: DBPort,
+});
 
 // Habilitar CORS para permitir peticiones desde la web estática
 app.use(cors({
@@ -31,6 +47,8 @@ const CONTACT_PROPERTIES = [
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'API de Boardroom Business School activa' });
 });
+
+// INICIO DE LA API DE USUARIOS DE LA PAGINA WEB
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
@@ -123,6 +141,164 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// --- API CAMBIAR CONTRASEÑA ---
+app.post('/api/change-password', async (req, res) => {
+  const { email, currentPassword, newPassword } = req.body;
+
+  // Validación de campos obligatorios
+  if (!email || !currentPassword || !newPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Email, contraseña actual y nueva contraseña son requeridos.' 
+    });
+  }
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Buscar al contacto en HubSpot por su Email
+    const searchRequest = {
+      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
+      properties: ['email', 'password_hash'], // Traemos el hash actual para verificarlo
+      limit: 1
+    };
+
+    const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
+
+    // Si el usuario no existe en el CRM
+    if (searchResponse.results.length === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    }
+
+    const contact = searchResponse.results[0];
+    const currentHash = contact.properties.password_hash;
+
+    // Si existe el contacto pero nunca ha activado/creado una contraseña
+    if (!currentHash) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Este usuario no tiene un acceso activo. Por favor, regístrese primero.' 
+      });
+    }
+
+    // 2. Validar que la contraseña actual ingresada coincida con el hash almacenado
+    const isPasswordValid = await bcrypt.compare(currentPassword, currentHash);
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: 'La contraseña actual es incorrecta.' });
+    }
+
+    // 3. Hashear la nueva contraseña de forma segura
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // 4. Actualizar el password_hash en HubSpot utilizando el ID del contacto
+    await hubspotClient.crm.contacts.basicApi.update(contact.id, {
+      properties: {
+        password_hash: hashedNewPassword
+      }
+    });
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Contraseña actualizada con éxito.' 
+    });
+
+  } catch (error) {
+    const hubspotError = error.body?.message || error.message || error;
+    console.error('CRÍTICO - Error HubSpot CRM (Change Password):', JSON.stringify(error.body || error, null, 2));
+
+    return res.status(500).json({
+      success: false,
+      message: `Error en HubSpot al cambiar la contraseña: ${hubspotError}`
+    });
+  }
+});
+
+// --- API LOGIN ---
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
+    }
+
+    try {
+        const cleanEmail = email.trim().toLowerCase();
+        const searchRequest = {
+            filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
+            properties: CONTACT_PROPERTIES,
+            limit: 1
+        };
+
+        const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
+
+        if (searchResponse.results.length === 0) {
+            return res.status(401).json({ success: false, message: 'Credenciales incorrectas o usuario no encontrado.' });
+        }
+
+        const contact = searchResponse.results[0];
+        const savedPasswordHash = contact.properties.password_hash;
+
+        if (!savedPasswordHash) {
+            return res.status(401).json({ success: false, message: 'El usuario no tiene una contraseña configurada.' });
+        }
+
+        const match = await bcrypt.compare(password, savedPasswordHash);
+
+        if (!match) {
+            return res.status(401).json({ success: false, message: 'Credenciales incorrectas.' });
+        }
+
+        const userData = {
+            id: contact.id,
+            email: contact.properties.email,
+            firstname: contact.properties.firstname || '',
+            lastname: contact.properties.lastname || '',
+            phone: contact.properties.phone || '',
+            jobtitle: contact.properties.jobtitle || '',
+            company: contact.properties.company || '',
+            field_of_study: contact.properties.field_of_study || '',
+            military_status: contact.properties.military_status || 'Activo',
+            matricula_escolar: contact.properties.matricula_escolar || '',
+            city: contact.properties.city || '',
+            state: contact.properties.state || '',
+            country: contact.properties.country || '',
+            message: contact.properties.message || '',
+            asunto: contact.properties.asunto || '',
+            hs_linkedin_url: contact.properties.hs_linkedin_url || ''
+        };
+      
+      
+      const token = jwt.sign(userData, JWT_SECRET, { expiresIn: '8h' });
+
+        return res.status(200).json({
+            success: true,
+            message: `¡Bienvenido, ${userData.firstname || 'Ejecutivo'}!`,
+            token: token,
+            user: userData
+        });
+
+    } catch (error) {
+        console.error('Error en login:', error.body || error);
+        return res.status(500).json({ success: false, message: 'Error en la verificación de credenciales.' });
+    }
+});
+
+// --- API PERFIL (AUTENTICADO) ---
+app.get('/api/profile', (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, message: 'Token no provisto.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        return res.status(200).json({ success: true, user: decoded });
+    } catch (err) {
+        return res.status(401).json({ success: false, message: 'Sesión expirada o inválida.' });
+    }
+});
+
 // --- API REGISTRO IN-HOUSE ---
 app.post('/api/reginhouse', async (req, res) => {
   const { email, password, firstname, lastname, phone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
@@ -212,92 +388,6 @@ app.post('/api/reginhouse', async (req, res) => {
       message: `Error en HubSpot: ${hubspotError}`
     });
   }
-});
-
-// --- API LOGIN ---
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
-    }
-
-    try {
-        const cleanEmail = email.trim().toLowerCase();
-        const searchRequest = {
-            filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-            properties: CONTACT_PROPERTIES,
-            limit: 1
-        };
-
-        const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
-
-        if (searchResponse.results.length === 0) {
-            return res.status(401).json({ success: false, message: 'Credenciales incorrectas o usuario no encontrado.' });
-        }
-
-        const contact = searchResponse.results[0];
-        const savedPasswordHash = contact.properties.password_hash;
-
-        if (!savedPasswordHash) {
-            return res.status(401).json({ success: false, message: 'El usuario no tiene una contraseña configurada.' });
-        }
-
-        const match = await bcrypt.compare(password, savedPasswordHash);
-
-        if (!match) {
-            return res.status(401).json({ success: false, message: 'Credenciales incorrectas.' });
-        }
-
-        const userData = {
-            id: contact.id,
-            email: contact.properties.email,
-            firstname: contact.properties.firstname || '',
-            lastname: contact.properties.lastname || '',
-            phone: contact.properties.phone || '',
-            jobtitle: contact.properties.jobtitle || '',
-            company: contact.properties.company || '',
-            field_of_study: contact.properties.field_of_study || '',
-            military_status: contact.properties.military_status || 'Activo',
-            matricula_escolar: contact.properties.matricula_escolar || '',
-            city: contact.properties.city || '',
-            state: contact.properties.state || '',
-            country: contact.properties.country || '',
-            message: contact.properties.message || '',
-            asunto: contact.properties.asunto || '',
-            hs_linkedin_url: contact.properties.hs_linkedin_url || ''
-        };
-      
-      
-      const token = jwt.sign(userData, JWT_SECRET, { expiresIn: '8h' });
-
-        return res.status(200).json({
-            success: true,
-            message: `¡Bienvenido, ${userData.firstname || 'Ejecutivo'}!`,
-            token: token,
-            user: userData
-        });
-
-    } catch (error) {
-        console.error('Error en login:', error.body || error);
-        return res.status(500).json({ success: false, message: 'Error en la verificación de credenciales.' });
-    }
-});
-
-// --- API PERFIL (AUTENTICADO) ---
-app.get('/api/profile', (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, message: 'Token no provisto.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        return res.status(200).json({ success: true, user: decoded });
-    } catch (err) {
-        return res.status(401).json({ success: false, message: 'Sesión expirada o inválida.' });
-    }
 });
 
 // --- EMPRESAS: Crear o Vincular una Empresa ---
@@ -392,7 +482,15 @@ app.post('/api/webhooks/hubspot', (req, res) => {
   res.status(200).send('EVENT_RECEIVED');
 });
 
-// LEER EVENTOS
+// TERMINO DE LA API DE USUARIOS DE LA PAGINA WEB
+
+
+  //-------------------------------------------------------------------------------------------------------
+
+
+// INICIO DE LA API DE LOS EVENTOS PAGINA DE INICIO
+
+// LEER EVENTOS PAGINA DE INICIO
 app.get('/api/eventos', (req, res) => {
   const rutaArchivo = path.join(__dirname, 'eventos.json');
   
@@ -404,6 +502,15 @@ app.get('/api/eventos', (req, res) => {
   });
 });
 
+// TERMINO DE LA API DE LOS EVENTOS PAGINA DE INICIO
+
+
+
+//-------------------------------------------------------------------------------------------------------
+
+
+
+// INICIO DE LA API DE LOS CURSOS CORTOS
 // LEER CURSOS
 app.get('/api/cursos', (req, res) => {
   const rutaArchivo = path.join(__dirname, 'cursos.json');
@@ -416,6 +523,176 @@ app.get('/api/cursos', (req, res) => {
   });
 });
 
+// NUEVO - API: Obtener un solo curso por su ID
+app.get('/api/cursos/:id', (req, res) => {
+  const cursoId = parseInt(req.params.id);
+
+  fs.readFile(CURSOS_FILE, 'utf8', (err, data) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error al leer los datos de los cursos.' });
+    }
+
+    const cursos = JSON.parse(data);
+    const cursoEncontrado = cursos.find(c => c.id === cursoId);
+
+    if (!cursoEncontrado) {
+      return res.status(404).json({ error: 'El curso solicitado no existe.' });
+    }
+
+    res.json(cursoEncontrado);
+  });
+});
+
+// app.get('/api/cursos', async (req, res) => {
+//   try {
+//     // Realizamos la consulta a la tabla 'diplomados'
+//     const resultado = await pool.query('SELECT * FROM diplomados ORDER BY fecha ASC');
+    
+//     // Devolvemos las filas obtenidas en formato JSON
+//     res.json(resultado.rows);
+//   } catch (err) {
+//     console.error('Error al consultar la base de datos:', err);
+//     res.status(500).json({ error: 'No se pudo leer la base de datos de cursos.' });
+//   }
+// });
+
+// TERMINO DE LA API DE LOS CURSOS CORTOS
+
+
+//-------------------------------------------------------------------------------------------------------
+
+
+// INICIO DE LA API DE LOS NEWSLETTERS (BLOGS) DE BOARDROOM
+
+// Función auxiliar para generar un slug amigable a partir del título (ej: "Hola Mundo" -> "hola-mundo")
+const generarSlug = (texto) => {
+  return texto
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')       // Reemplaza espacios con guiones
+    .replace(/[^\w\-]+/g, '')   // Remueve caracteres no válidos
+    .replace(/\-\-+/g, '-');    // Elimina guiones duplicados
+};
+
+// =======================================================
+// API DE NEWSLETTERS PARA BOARDROOM (MIGRADO A POSTGRESQL)
+// =======================================================
+
+// Endpoint para obtener todos los newsletters publicados (GET)
+app.get('/api/newsletters', async (req, res) => {
+  try {
+    const queryText = 'SELECT id, slug, titulo, subtitulo, imagen_destacada_url, autor_nombre, es_exclusivo, status, published_at FROM boardroom_newsletters WHERE status = $1 ORDER BY published_at DESC';
+    const { rows } = await pool.query(queryText, ['publicado']);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error('Error al leer de PostgreSQL:', err);
+    res.status(500).json({ error: 'Error interno al leer los datos del servidor' });
+  }
+});
+
+// Endpoint para buscar newsletters por palabra clave en título o contenido (GET)
+app.get('/api/newsletters/search', async (req, res) => {
+  const query = req.query.q;
+
+  if (!query) {
+    return res.status(400).json({ error: 'Debes proporcionar un término de búsqueda en el parámetro ?q=' });
+  }
+
+  try {
+    // Usamos ILIKE de PostgreSQL para búsquedas insensibles a mayúsculas/minúsculas y acentos
+    const sqlMatch = `%${query}%`;
+    const queryText = `
+      SELECT id, slug, titulo, subtitulo, status, published_at 
+      FROM boardroom_newsletters 
+      WHERE (titulo ILIKE $1 OR contenido_html ILIKE $1 OR contenido_texto ILIKE $1)
+      AND status = 'publicado'
+    `;
+    
+    const { rows } = await pool.query(queryText, [sqlMatch]);
+
+    res.json({
+      busqueda: query,
+      totalResultados: rows.length,
+      resultados: rows
+    });
+  } catch (err) {
+    console.error('Error en la búsqueda de PostgreSQL:', err);
+    res.status(500).json({ error: 'Error interno al realizar la búsqueda' });
+  }
+});
+
+// Endpoint para obtener un solo newsletter por su SLUG (Ideal para las URLs de Boardroom)
+app.get('/api/newsletters/:slug', async (req, res) => {
+  const blogSlug = req.params.slug;
+  
+  try {
+    const queryText = 'SELECT * FROM boardroom_newsletters WHERE slug = $1';
+    const { rows } = await pool.query(queryText, [blogSlug]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Newsletter no encontrado' });
+    }
+    
+    // Opcional: Incrementar el contador de vistas web de manera asíncrona
+    pool.query('UPDATE boardroom_newsletters SET total_vistas_web = total_vistas_web + 1 WHERE slug = $1', [blogSlug]).catch(err => console.error(err));
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Error al obtener el newsletter de PostgreSQL:', err);
+    res.status(500).json({ error: 'Error interno al buscar la publicación' });
+  }
+});
+
+// Endpoint para crear y publicar un nuevo newsletter (POST)
+app.post('/api/newsletters', async (req, res) => {
+  const { titulo, subtitulo, contenido_html, contenido_texto, imagen_destacada_url, autor_nombre, es_exclusivo } = req.body;
+
+  // Validaciones mínimas obligatorias para la consistencia de datos
+  if (!titulo || !contenido_html || !contenido_texto) {
+    return res.status(400).json({ error: 'El título, contenido_html y contenido_texto son obligatorios.' });
+  }
+
+  try {
+    const slug = generarSlug(titulo);
+    const status = 'publicado'; // Se guarda directamente como publicado
+    const published_at = new Date();
+
+    const queryText = `
+      INSERT INTO boardroom_newsletters 
+      (slug, titulo, subtitulo, contenido_html, contenido_texto, imagen_destacada_url, autor_nombre, es_exclusivo, status, published_at) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+      RETURNING *
+    `;
+    
+    const values = [
+      slug, 
+      titulo, 
+      subtitulo || null, 
+      contenido_html, 
+      contenido_texto, 
+      imagen_destacada_url || null, 
+      autor_nombre || 'Equipo Boardroom', 
+      es_exclusivo || false, 
+      status, 
+      published_at
+    ];
+
+    const { rows } = await pool.query(queryText, values);
+
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error('Error al guardar en PostgreSQL:', err);
+    // Controlar errores de duplicidad en el SLUG (Llave única)
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Ya existe una publicación con un título idéntico o muy similar.' });
+    }
+    res.status(500).json({ error: 'Error interno al intentar guardar la publicación.' });
+  }
+});
+
+// TERMINO DE LA API DE LOS NEWSLETTERS
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Backend API escuchando en puerto ${PORT}`));
