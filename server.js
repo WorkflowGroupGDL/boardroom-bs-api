@@ -582,7 +582,7 @@ const generarSlug = (texto) => {
 // Endpoint para obtener todos los newsletters publicados (GET)
 app.get('/api/newsletters', async (req, res) => {
   try {
-    const queryText = 'SELECT id, slug, titulo, subtitulo, imagen_destacada_url, autor_nombre, es_exclusivo, status, published_at FROM boardroom_newsletters WHERE status = $1 ORDER BY published_at DESC';
+    const queryText = 'SELECT id, slug, titulo, subtitulo, imagen_destacada_url, autor_nombre, es_exclusivo, status, published_at FROM newsletters WHERE status = $1 ORDER BY published_at DESC';
     const { rows } = await pool.query(queryText, ['publicado']);
     
     res.json(rows);
@@ -605,7 +605,7 @@ app.get('/api/newsletters/search', async (req, res) => {
     const sqlMatch = `%${query}%`;
     const queryText = `
       SELECT id, slug, titulo, subtitulo, status, published_at 
-      FROM boardroom_newsletters 
+      FROM newsletters 
       WHERE (titulo ILIKE $1 OR contenido_html ILIKE $1 OR contenido_texto ILIKE $1)
       AND status = 'publicado'
     `;
@@ -628,7 +628,7 @@ app.get('/api/newsletters/:slug', async (req, res) => {
   const blogSlug = req.params.slug;
   
   try {
-    const queryText = 'SELECT * FROM boardroom_newsletters WHERE slug = $1';
+    const queryText = 'SELECT * FROM newsletters WHERE slug = $1';
     const { rows } = await pool.query(queryText, [blogSlug]);
     
     if (rows.length === 0) {
@@ -636,7 +636,7 @@ app.get('/api/newsletters/:slug', async (req, res) => {
     }
     
     // Opcional: Incrementar el contador de vistas web de manera asíncrona
-    pool.query('UPDATE boardroom_newsletters SET total_vistas_web = total_vistas_web + 1 WHERE slug = $1', [blogSlug]).catch(err => console.error(err));
+    pool.query('UPDATE newsletters SET total_vistas_web = total_vistas_web + 1 WHERE slug = $1', [blogSlug]).catch(err => console.error(err));
 
     res.json(rows[0]);
   } catch (err) {
@@ -660,7 +660,7 @@ app.post('/api/newsletters', async (req, res) => {
     const published_at = new Date();
 
     const queryText = `
-      INSERT INTO boardroom_newsletters 
+      INSERT INTO newsletters 
       (slug, titulo, subtitulo, contenido_html, contenido_texto, imagen_destacada_url, autor_nombre, es_exclusivo, status, published_at) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
       RETURNING *
