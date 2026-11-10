@@ -143,33 +143,32 @@ app.post('/api/register', async (req, res) => {
 
 
 // --- API CAMBIAR CONTRASEÑA (PARA RENDER.COM) ---
+// --- API CAMBIAR CONTRASEÑA (EXPRESS PARA RENDER.COM) ---
 app.post('/api/change-password', async (req, res) => {
-  // Forzar cabecera JSON desde el primer milisegundo
+  // Aseguramos que la respuesta siempre sea interpretada como JSON
   res.setHeader('Content-Type', 'application/json');
 
+  const { email, currentPassword, newPassword } = req.body;
+
+  if (!email || !currentPassword || !newPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'El correo, la contraseña actual y la nueva contraseña son obligatorios.' 
+    });
+  }
+
   try {
-    const { email, currentPassword, newPassword } = req.body;
-
-    // 1. Validar campos requeridos inmediatamente
-    if (!email || !currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email, contraseña actual y nueva contraseña son requeridos.' 
-      });
-    }
-
     const cleanEmail = email.trim().toLowerCase();
 
-    // 2. Configurar la búsqueda en HubSpot de manera idéntica a tu /api/register
+    // 1. Configurar búsqueda en HubSpot (idéntico a tu /api/register)
     const searchRequest = {
       filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-      properties: ['email', 'password_hash'], // Traemos el hash de la contraseña actual
+      properties: ['email', 'password_hash'],
       limit: 1
     };
 
     const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
 
-    // Validar si el arreglo de resultados existe y tiene elementos
     if (!searchResponse || !searchResponse.results || searchResponse.results.length === 0) {
       return res.status(404).json({ 
         success: false, 
@@ -177,57 +176,55 @@ app.post('/api/change-password', async (req, res) => {
       });
     }
 
-    // CORRECCIÓN DE LA DESESTRUCTURACIÓN: Extraer el primer contacto de los resultados
-    const existingContact = searchResponse.results[0];
-    
-    // Verificar si tiene propiedades y extraer el hash
-    const currentHash = existingContact.properties ? existingContact.properties.password_hash : null;
+    // SOLUCIÓN AL CRASH: Accedemos al primer registro del array [0]
+    const contact = searchResponse.results[0]; 
+    const currentHash = contact.properties ? contact.properties.password_hash : null;
 
     if (!currentHash) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Este usuario no tiene un acceso activo en el portal. Por favor, regístrese primero.' 
+        message: 'Este usuario no tiene un acceso activo en el portal. Regístrese primero.' 
       });
     }
 
-    // 3. Validar la contraseña actual usando bcrypt
+    // 2. Validar contraseña actual con tu bcrypt estándar
     const isPasswordValid = await bcrypt.compare(currentPassword, currentHash);
     if (!isPasswordValid) {
-      return res.status(412).json({ // Usamos 412 (Precondition Failed) para diferenciarlo de errores de red
+      return res.status(401).json({ 
         success: false, 
-        message: 'La contraseña actual ingresada es incorrecta.' 
+        message: 'La contraseña actual introducida es incorrecta.' 
       });
     }
 
-    // 4. Hashear la nueva contraseña
+    // 3. Generar nuevo hash seguro
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // 5. Actualizar la contraseña en HubSpot usando el ID del contacto encontrado
-    await hubspotClient.crm.contacts.basicApi.update(existingContact.id, {
+    // 4. Actualizar el contacto en HubSpot utilizando su API básica
+    await hubspotClient.crm.contacts.basicApi.update(contact.id, {
       properties: {
         password_hash: hashedNewPassword
       }
     });
 
-    // 6. Respuesta de éxito rotundo
+    // Respuesta exitosa garantizada
     return res.status(200).json({ 
       success: true, 
-      message: 'Contraseña actualizada con éxito.' 
+      message: 'Contraseña actualizada con éxito en la plataforma.' 
     });
 
   } catch (error) {
-    // PROTECCIÓN CONTRA ERRORES CIRCULARES: Extraemos solo texto plano del error para evitar crasheos en Render
-    const mensajeError = error.body?.message || error.message || String(error);
-    
-    console.error('CRÍTICO - Error en Servidor Render (Change Password):', mensajeError);
+    // Evitamos el uso de JSON.stringify directo del error para que Node no truene por referencias circulares
+    const hubspotError = error.body?.message || error.message || String(error);
+    console.error('CRÍTICO - Error en Servidor Render:', hubspotError);
 
-    // Si el servidor falla, garantizamos enviar un JSON bien estructurado
+    // Si algo falla, Express responde con un JSON válido detallando el error
     return res.status(500).json({
       success: false,
-      message: `Error en el servidor de Render al cambiar la contraseña: ${mensajeError}`
+      message: `Error interno en el servidor de Render: ${hubspotError}`
     });
   }
 });
+
 
 
 // --- API LOGIN ---
