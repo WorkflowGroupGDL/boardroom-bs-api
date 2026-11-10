@@ -141,77 +141,88 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// --- API CAMBIAR CONTRASEÑA ---
+
+// --- API CAMBIAR CONTRASEÑA (PARA RENDER.COM) ---
 app.post('/api/change-password', async (req, res) => {
   const { email, currentPassword, newPassword } = req.body;
 
-  // Validación de campos obligatorios
+  // 1. Validación estricta de campos obligatorios
   if (!email || !currentPassword || !newPassword) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Email, contraseña actual y nueva contraseña son requeridos.' 
+      message: 'El correo, la contraseña actual y la nueva contraseña son requeridos.' 
     });
   }
 
   try {
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Buscar al contacto en HubSpot por su Email
+    // 2. Buscar al contacto en HubSpot usando tu cliente oficial
     const searchRequest = {
       filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-      properties: ['email', 'password_hash'], // Traemos el hash actual para verificarlo
+      properties: ['email', 'password_hash'], // Traemos explícitamente el hash actual
       limit: 1
     };
 
     const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
 
     // Si el usuario no existe en el CRM
-    if (searchResponse.results.length === 0) {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    if (!searchResponse.results || searchResponse.results.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'El usuario no existe en la base de datos de Boardroom.' 
+      });
     }
 
     const contact = searchResponse.results[0];
     const currentHash = contact.properties.password_hash;
 
-    // Si existe el contacto pero nunca ha activado/creado una contraseña
+    // Si el contacto existe pero nunca ha activado una contraseña
     if (!currentHash) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Este usuario no tiene un acceso activo. Por favor, regístrese primero.' 
+        message: 'Este usuario no tiene un acceso activo en el portal. Regístrese primero.' 
       });
     }
 
-    // 2. Validar que la contraseña actual ingresada coincida con el hash almacenado
+    // 3. Validar con bcrypt si la contraseña actual coincide
     const isPasswordValid = await bcrypt.compare(currentPassword, currentHash);
     if (!isPasswordValid) {
-      return res.status(401).json({ success: false, message: 'La contraseña actual es incorrecta.' });
+      return res.status(401).json({ 
+        success: false, 
+        message: 'La contraseña actual introducida es incorrecta.' 
+      });
     }
 
-    // 3. Hashear la nueva contraseña de forma segura
+    // 4. Hashear la nueva contraseña con el algoritmo clásico
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // 4. Actualizar el password_hash en HubSpot utilizando el ID del contacto
+    // 5. Actualizar la propiedad en HubSpot usando el ID numérico del contacto
     await hubspotClient.crm.contacts.basicApi.update(contact.id, {
       properties: {
         password_hash: hashedNewPassword
       }
     });
 
+    // RESPUESTA GARANTIZADA: Enviamos un JSON válido al frontend
     return res.status(200).json({ 
       success: true, 
-      message: 'Contraseña actualizada con éxito.' 
+      message: 'Contraseña actualizada con éxito en la plataforma.' 
     });
 
   } catch (error) {
+    // Captura de errores avanzada para los logs de Render
     const hubspotError = error.body?.message || error.message || error;
-    console.error('CRÍTICO - Error HubSpot CRM (Change Password):', JSON.stringify(error.body || error, null, 2));
+    console.error('CRÍTICO - Error en Servidor Render (Change Password):', JSON.stringify(error.body || error, null, 2));
 
+    // Forzamos el envío de un JSON estructurado incluso si cae en el catch
     return res.status(500).json({
       success: false,
-      message: `Error en HubSpot al cambiar la contraseña: ${hubspotError}`
+      message: `Error interno en el servidor: ${hubspotError}`
     });
   }
 });
+
 
 // --- API LOGIN ---
 app.post('/api/login', async (req, res) => {
