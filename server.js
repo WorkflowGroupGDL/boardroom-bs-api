@@ -145,22 +145,23 @@ app.post('/api/register', async (req, res) => {
 // --- API CAMBIAR CONTRASEÑA (PARA RENDER.COM) ---
 // --- API CAMBIAR CONTRASEÑA (EXPRESS PARA RENDER.COM) ---
 app.post('/api/change-password', async (req, res) => {
-  // Aseguramos que la respuesta siempre sea interpretada como JSON
+  // Aseguramos de inmediato que el navegador reciba un JSON pase lo que pase
   res.setHeader('Content-Type', 'application/json');
 
   const { email, currentPassword, newPassword } = req.body;
 
+  // 1. Validaciones de campos obligatorios
   if (!email || !currentPassword || !newPassword) {
     return res.status(400).json({ 
       success: false, 
-      message: 'El correo, la contraseña actual y la nueva contraseña son obligatorios.' 
+      message: 'El correo, la contraseña actual y la nueva contraseña son requeridos.' 
     });
   }
 
   try {
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Configurar búsqueda en HubSpot (idéntico a tu /api/register)
+    // 2. Ejecutar la búsqueda en HubSpot (Estructura idéntica a tu /api/register)
     const searchRequest = {
       filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
       properties: ['email', 'password_hash'],
@@ -169,6 +170,7 @@ app.post('/api/change-password', async (req, res) => {
 
     const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
 
+    // Validar existencia en el CRM
     if (!searchResponse || !searchResponse.results || searchResponse.results.length === 0) {
       return res.status(404).json({ 
         success: false, 
@@ -176,7 +178,7 @@ app.post('/api/change-password', async (req, res) => {
       });
     }
 
-    // SOLUCIÓN AL CRASH: Accedemos al primer registro del array [0]
+    // Acceso seguro al índice [0] del array sin romper el hilo de Node.js
     const contact = searchResponse.results[0]; 
     const currentHash = contact.properties ? contact.properties.password_hash : null;
 
@@ -187,7 +189,7 @@ app.post('/api/change-password', async (req, res) => {
       });
     }
 
-    // 2. Validar contraseña actual con tu bcrypt estándar
+    // 3. Verificación de la contraseña mediante el Bcrypt tradicional
     const isPasswordValid = await bcrypt.compare(currentPassword, currentHash);
     if (!isPasswordValid) {
       return res.status(401).json({ 
@@ -196,28 +198,27 @@ app.post('/api/change-password', async (req, res) => {
       });
     }
 
-    // 3. Generar nuevo hash seguro
+    // 4. Generar el nuevo hash seguro para la nueva credencial
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // 4. Actualizar el contacto en HubSpot utilizando su API básica
+    // 5. Actualizar el password_hash en HubSpot usando el API básico
     await hubspotClient.crm.contacts.basicApi.update(contact.id, {
       properties: {
         password_hash: hashedNewPassword
       }
     });
 
-    // Respuesta exitosa garantizada
+    // Envío del JSON de éxito definitivo al formulario web
     return res.status(200).json({ 
       success: true, 
       message: 'Contraseña actualizada con éxito en la plataforma.' 
     });
 
   } catch (error) {
-    // Evitamos el uso de JSON.stringify directo del error para que Node no truene por referencias circulares
+    // Extracción limpia del error para evitar crasheos por referencias circulares en los logs de Render
     const hubspotError = error.body?.message || error.message || String(error);
     console.error('CRÍTICO - Error en Servidor Render:', hubspotError);
 
-    // Si algo falla, Express responde con un JSON válido detallando el error
     return res.status(500).json({
       success: false,
       message: `Error interno en el servidor de Render: ${hubspotError}`
@@ -707,6 +708,10 @@ app.post('/api/newsletters', async (req, res) => {
 });
 
 // TERMINO DE LA API DE LOS NEWSLETTERS
+
+
+// REGLA DE ORO DE RENDER: Las rutas estáticas SIEMPRE van al final para evitar el error 405
+app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Backend API escuchando en puerto ${PORT}`));
