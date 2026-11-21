@@ -170,11 +170,10 @@ app.post('/api/forgot-password', async (req, res) => {
       });
     }
 
+    // CORRECCIÓN AQUÍ: Agregado el índice [0]
     const contact = searchResponse.results[0];
 
-    // Validación extra de seguridad: comprobar si el teléfono coincide con el registrado en HubSpot
-    // (Si no deseas validar teléfono, puedes eliminar este bloque if)
-    const registeredPhone = contact.properties.phone || contact.properties.mobilephone;
+    const registeredPhone = contact.properties?.phone || contact.properties?.mobilephone;
     if (registeredPhone && phone) {
       const cleanInputPhone = phone.replace(/\D/g, '');
       const cleanRegPhone = registeredPhone.replace(/\D/g, '');
@@ -186,15 +185,12 @@ app.post('/api/forgot-password', async (req, res) => {
       }
     }
 
-    // Generar un token temporal de recuperación válido por 15 minutos
     const resetToken = jwt.sign(
       { contactId: contact.id, email: cleanEmail, purpose: 'password_reset' },
       JWT_SECRET,
       { expiresIn: '15m' }
     );
 
-    // NOTA: Aquí puedes integrar Nodemailer o Resend para enviar este token por correo.
-    // Por ahora, se devuelve en la respuesta para que tu frontend lo use en el Paso 2.
     return res.status(200).json({
       success: true,
       message: 'Identidad verificada. Utiliza el token para restablecer tu contraseña.',
@@ -210,6 +206,7 @@ app.post('/api/forgot-password', async (req, res) => {
     });
   }
 });
+
 
 // --- API RECUPERACIÓN DE CONTRASEÑA - PASO 2: ESTABLECER NUEVA CONTRASEÑA ---
 app.post('/api/reset-password', async (req, res) => {
