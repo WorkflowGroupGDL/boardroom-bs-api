@@ -54,62 +54,78 @@ app.get('/api/health', (req, res) => {
 
 // --- API REGISTRO ---
 app.post('/api/register', async (req, res) => {
-  const { email, password, firstname, lastname, phone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
+  const {
+    email,
+    password,
+    firstname,
+    lastname,
+    phone,
+    city,
+    state,
+    country,
+    message,
+    jobtitle,
+    company,
+    field_of_study,
+    asunto,
+    hs_linkedin_url
+  } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
+  if (
+    typeof email !== 'string' ||
+    !email.trim() ||
+    typeof password !== 'string' ||
+    !password
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email y contraseña requeridos.'
+    });
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Buscar si el contacto existe
+    // 1. Buscar si el contacto existe.
     const searchRequest = {
-      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-      properties: CONTACT_PROPERTIES,
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: 'email',
+              operator: 'EQ',
+              value: cleanEmail
+            }
+          ]
+        }
+      ],
+      properties: ['email', 'password_hash'],
       limit: 1
     };
 
-    const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
+    const searchApiResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/objects/2026-03/contacts/search',
+      body: searchRequest
+    });
 
-    if (searchResponse.results.length > 0) {
-      const existingContact = searchResponse.results[0];
+    const searchResponse = await searchApiResponse.json();
+    const existingContact = searchResponse.results[0];
 
-      if (existingContact.properties.password_hash) {
-        return res.status(409).json({ success: false, message: 'Este correo ya tiene acceso activado.' });
-      }
-
-      await hubspotClient.crm.contacts.basicApi.update(existingContact.id, {
-        properties: {
-          password_hash: hashedPassword,
-          military_status: 'Activo',
-          ...(firstname && { firstname }),
-          ...(lastname && { lastname }),
-          ...(phone && { phone }),
-          ...(city && { city }),
-          ...(state && { state }),
-          ...(country && { country }),
-          ...(message && { message }),
-          ...(asunto && { asunto }),
-          ...(jobtitle && { jobtitle }),
-          ...(company && { company }),
-          ...(field_of_study && { field_of_study }),
-          ...(asunto && { asunto }),
-          ...(hs_linkedin_url && { hs_linkedin_url })
-        }
+    if (existingContact?.properties?.password_hash) {
+      return res.status(409).json({
+        success: false,
+        message: 'Este correo ya tiene acceso activado.'
       });
-
-      return res.status(200).json({ success: true, message: 'Acceso activado correctamente.' });
     }
 
-    // 2. Crear un nuevo contacto
-    const properties = {
-      email: cleanEmail,
-      firstname: firstname || '',
-      lastname: lastname || '',
-      password_hash: hashedPassword,
-      military_status: 'Activo',
+    // 2. Generar el hash de la contraseña.
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Propiedades opcionales para creación y actualización.
+    const optionalProperties = {
+      ...(firstname && { firstname }),
+      ...(lastname && { lastname }),
       ...(phone && { phone }),
       ...(city && { city }),
       ...(state && { state }),
@@ -119,26 +135,68 @@ app.post('/api/register', async (req, res) => {
       ...(jobtitle && { jobtitle }),
       ...(company && { company }),
       ...(field_of_study && { field_of_study }),
-      ...(asunto && { asunto }),
       ...(hs_linkedin_url && { hs_linkedin_url })
     };
 
-    const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
+    // 3. Actualizar el contacto existente.
+    // PENDIENTE DE SEGURIDAD:
+    // verificar la propiedad del correo antes de activar el acceso.
+    if (existingContact) {
+      await hubspotClient.apiRequest({
+        method: 'PATCH',
+        path:
+          '/crm/objects/2026-03/contacts/' +
+          encodeURIComponent(existingContact.id),
+        body: {
+          properties: {
+            password_hash: hashedPassword,
+            military_status: 'Activo',
+            ...optionalProperties
+          }
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Acceso activado correctamente.'
+      });
+    }
+
+    // 4. Crear un contacto nuevo.
+    const properties = {
+      email: cleanEmail,
+      firstname: firstname || '',
+      lastname: lastname || '',
+      password_hash: hashedPassword,
+      military_status: 'Activo',
+      ...optionalProperties
+    };
+
+    const createApiResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/objects/2026-03/contacts',
+      body: {
+        properties,
+        associations: []
+      }
+    });
+
+    const createdContact = await createApiResponse.json();
 
     return res.status(201).json({
       success: true,
       message: 'Usuario registrado con éxito.',
-      id: apiResponse.id
+      id: createdContact.id
     });
-
   } catch (error) {
-    // ESTA LÍNEA MOSTRARÁ EL ERROR REAL EN RENDER
-    const hubspotError = error.body?.message || error.message || error;
-    console.error('CRÍTICO - Error HubSpot CRM:', JSON.stringify(error.body || error, null, 2));
+    // No registrar contraseñas, hashes ni el cuerpo completo del error.
+    console.error('Error en registro de contacto en HubSpot:', {
+      status: error.statusCode ?? error.code ?? 'UNKNOWN'
+    });
 
     return res.status(500).json({
       success: false,
-      message: `Error en HubSpot: ${hubspotError}`
+      message: 'No se pudo completar el registro. Intenta nuevamente.'
     });
   }
 });
@@ -148,74 +206,156 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'El correo electrónico es obligatorio.' 
+  if (typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'El correo electrónico es obligatorio.'
     });
   }
 
+  const genericResponse = {
+    success: true,
+    message:
+      'Si existe una cuenta asociada a este correo, recibirás instrucciones para restablecer tu contraseña.'
+  };
+
   try {
     const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Buscar el contacto usando la API 2026-03.
     const searchRequest = {
-      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-      properties: ['email', 'firstname', 'password_hash'],
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: 'email',
+              operator: 'EQ',
+              value: cleanEmail
+            }
+          ]
+        }
+      ],
+      properties: ['email', 'firstname'],
       limit: 1
     };
 
-    const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
+    const searchApiResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/objects/2026-03/contacts/search',
+      body: searchRequest
+    });
 
-    if (!searchResponse.results || searchResponse.results.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No encontramos una cuenta asociada a este correo.' 
-      });
+    const searchResponse = await searchApiResponse.json();
+    const contact = searchResponse.results[0];
+
+    // No revelar si el correo existe.
+    if (!contact) {
+      return res.status(200).json(genericResponse);
     }
 
-    const contact = searchResponse.results[0];
-    const nombre = contact.properties?.firstname || 'Ejecutivo';
-
-    // 1. Generar token válido por 15 minutos
+    // 2. Generar un token válido por 15 minutos.
+    // contactId se guarda como texto para ser compatible
+    // con el endpoint reset-password anterior.
     const resetToken = jwt.sign(
-      { contactId: contact.id, email: cleanEmail, purpose: 'password_reset' },
+      {
+        contactId: String(contact.id),
+        email: cleanEmail,
+        purpose: 'password_reset'
+      },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      {
+        expiresIn: '15m'
+      }
     );
 
-    // 2. Construir la URL hacia la página de tu frontend donde pondrá su nueva contraseña
-    const frontendUrl = process.env.FRONTEND_URL || 'https://boardroom-business.school.com';
-    const resetLink = `${frontendUrl}/restablecer-password.html?token=${resetToken}`;
+    // 3. Construir el enlace desde una URL configurada en el servidor.
+    if (!process.env.FRONTEND_URL) {
+      throw new Error('FRONTEND_URL no está configurada.');
+    }
 
-    // 3. Enviar el correo electrónico
-    await resend.emails.send({
-      from: 'Boardroom Business School <soporte@boardroom-business.school>', // Cambia esto por tu dominio verificado (ej: soporte@tudominio.com)
+    const resetUrl = new URL(
+      '/restablecer-password.html',
+      process.env.FRONTEND_URL
+    );
+
+    if (resetUrl.protocol !== 'https:') {
+      throw new Error('FRONTEND_URL debe utilizar HTTPS.');
+    }
+
+    resetUrl.searchParams.set('token', resetToken);
+
+    // Escapar valores que se insertan en el HTML.
+    const escapeHtml = (value) =>
+      String(value).replace(/[&<>"']/g, (character) => {
+        const entities = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        };
+
+        return entities[character];
+      });
+
+    const nombre = escapeHtml(
+      contact.properties?.firstname || 'Ejecutivo'
+    );
+
+    const resetLink = escapeHtml(resetUrl.toString());
+
+    // 4. Enviar el correo y comprobar el error devuelto por Resend.
+    const { data, error: sendError } = await resend.emails.send({
+      from: 'Boardroom Business School <soporte@boardroom-business.school>',
       to: cleanEmail,
       subject: 'Restablece tu contraseña - Boardroom Business School',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
           <h2>Hola, ${nombre}</h2>
-          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en Boardroom Business School.</p>
-          <p>Haz clic en el siguiente botón para crear una nueva contraseña (este enlace expira en 15 minutos):</p>
-          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px; margin: 16px 0;">
-            Restablecer Contraseña
+
+          <p>
+            Recibimos una solicitud para restablecer la contraseña
+            de tu cuenta en Boardroom Business School.
+          </p>
+
+          <p>
+            Haz clic en el siguiente botón para crear una nueva
+            contraseña. Este enlace expira en 15 minutos.
+          </p>
+
+          <a
+            href="${resetLink}"
+            style="display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px; margin: 16px 0;"
+          >
+            Restablecer contraseña
           </a>
-          <p style="font-size: 12px; color: #666;">Si no solicitaste este cambio, puedes ignorar este correo de forma segura.</p>
+
+          <p style="font-size: 12px; color: #666;">
+            Si no solicitaste este cambio, puedes ignorar este correo.
+          </p>
         </div>
       `
     });
 
-    // Ya no devolvemos el resetToken en el JSON por seguridad
-    return res.status(200).json({
-      success: true,
-      message: 'Te hemos enviado un correo electrónico con las instrucciones para restablecer tu contraseña.'
+    if (sendError || !data?.id) {
+      // No registrar el enlace, el token ni información del destinatario.
+      console.error('Fallo en el envío del correo de recuperación.');
+
+      // Mantener la misma respuesta pública para no revelar
+      // la existencia de la cuenta.
+      return res.status(200).json(genericResponse);
+    }
+
+    // Nunca devolver el token de recuperación en el JSON.
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error('Error en forgot-password:', {
+      status: error.statusCode ?? error.code ?? 'UNKNOWN'
     });
 
-  } catch (error) {
-    const errorMsg = error.body?.message || error.message || String(error);
-    console.error('Error en forgot-password:', errorMsg);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Error al enviar el correo de recuperación.' 
+    return res.status(500).json({
+      success: false,
+      message: 'No se pudo procesar la solicitud de recuperación.'
     });
   }
 });
@@ -226,52 +366,88 @@ app.post('/api/forgot-password', async (req, res) => {
 app.post('/api/reset-password', async (req, res) => {
   const { resetToken, newPassword } = req.body;
 
-  if (!resetToken || !newPassword) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'El token de recuperación y la nueva contraseña son requeridos.' 
+  if (
+    typeof resetToken !== 'string' ||
+    !resetToken.trim() ||
+    typeof newPassword !== 'string' ||
+    !newPassword
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'El token de recuperación y la nueva contraseña son requeridos.'
     });
   }
 
   try {
-    // 1. Verificar que el token sea válido y no haya expirado
-    const decoded = jwt.verify(resetToken, JWT_SECRET);
+    // 1. Verificar la firma y la vigencia del token.
+    const decoded = jwt.verify(resetToken.trim(), JWT_SECRET);
 
-    if (decoded.purpose !== 'password_reset') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Token inválido para esta operación.' 
+    if (
+      !decoded ||
+      typeof decoded !== 'object' ||
+      decoded.purpose !== 'password_reset'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Token inválido para esta operación.'
       });
     }
 
-    // 2. Encriptar la nueva contraseña
+    // Exigir un identificador válido y una fecha de expiración.
+    if (
+      typeof decoded.contactId !== 'string' ||
+      !decoded.contactId.trim() ||
+      typeof decoded.exp !== 'number'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Token de recuperación incompleto o inválido.'
+      });
+    }
+
+    // 2. Generar el hash de la nueva contraseña.
+    // No aplicar trim() a la contraseña.
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // 3. Sobrescribir password_hash en HubSpot
-    await hubspotClient.crm.contacts.basicApi.update(decoded.contactId, {
-      properties: {
-        password_hash: hashedNewPassword
+    // 3. Actualizar el contacto usando la API 2026-03.
+    await hubspotClient.apiRequest({
+      method: 'PATCH',
+      path:
+        '/crm/objects/2026-03/contacts/' +
+        encodeURIComponent(decoded.contactId.trim()),
+      body: {
+        properties: {
+          password_hash: hashedNewPassword
+        }
       }
     });
 
     return res.status(200).json({
       success: true,
-      message: 'Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión.'
+      message:
+        'Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión.'
     });
-
   } catch (error) {
-    if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'El enlace o token de recuperación ha expirado o es inválido.' 
+    if (
+      error.name === 'TokenExpiredError' ||
+      error.name === 'JsonWebTokenError' ||
+      error.name === 'NotBeforeError'
+    ) {
+      return res.status(401).json({
+        success: false,
+        message:
+          'El enlace o token de recuperación ha expirado o es inválido.'
       });
     }
 
-    const hubspotError = error.body?.message || error.message || String(error);
-    console.error('Error en reset-password:', hubspotError);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Error interno al actualizar la contraseña en HubSpot.' 
+    // No registrar tokens, contraseñas, hashes ni el cuerpo completo del error.
+    console.error('Error en reset-password:', {
+      status: error.statusCode ?? error.code ?? 'UNKNOWN'
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al actualizar la contraseña en HubSpot.'
     });
   }
 });
@@ -281,148 +457,241 @@ app.post('/api/reset-password', async (req, res) => {
 
 // --- API LOGIN ---
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
+  if (
+    typeof email !== 'string' ||
+    !email.trim() ||
+    typeof password !== 'string' ||
+    !password
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email y contraseña requeridos.'
+    });
+  }
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Solicitar explícitamente los campos utilizados en el login.
+    const loginProperties = [
+      'email',
+      'password_hash',
+      'firstname',
+      'lastname',
+      'phone',
+      'jobtitle',
+      'company',
+      'field_of_study',
+      'military_status',
+      'matricula_escolar',
+      'city',
+      'state',
+      'country',
+      'message',
+      'asunto',
+      'hs_linkedin_url'
+    ];
+
+    const searchRequest = {
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: 'email',
+              operator: 'EQ',
+              value: cleanEmail
+            }
+          ]
+        }
+      ],
+      properties: loginProperties,
+      limit: 1
+    };
+
+    // Buscar el contacto usando la API 2026-03.
+    const searchApiResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/objects/2026-03/contacts/search',
+      body: searchRequest
+    });
+
+    const searchResponse = await searchApiResponse.json();
+
+    const contact = searchResponse.results[0];
+    const savedPasswordHash = contact?.properties?.password_hash;
+
+    if (!contact || !savedPasswordHash) {
+      return res.status(401).json({
+        success: false,
+        message: 'Credenciales incorrectas.'
+      });
     }
 
-    try {
-        const cleanEmail = email.trim().toLowerCase();
-        const searchRequest = {
-            filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-            properties: CONTACT_PROPERTIES,
-            limit: 1
-        };
+    const match = await bcrypt.compare(password, savedPasswordHash);
 
-        const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
-
-        if (searchResponse.results.length === 0) {
-            return res.status(401).json({ success: false, message: 'Credenciales incorrectas o usuario no encontrado.' });
-        }
-
-        const contact = searchResponse.results[0];
-        const savedPasswordHash = contact.properties.password_hash;
-
-        if (!savedPasswordHash) {
-            return res.status(401).json({ success: false, message: 'El usuario no tiene una contraseña configurada.' });
-        }
-
-        const match = await bcrypt.compare(password, savedPasswordHash);
-
-        if (!match) {
-            return res.status(401).json({ success: false, message: 'Credenciales incorrectas.' });
-        }
-
-        const userData = {
-            id: contact.id,
-            email: contact.properties.email,
-            firstname: contact.properties.firstname || '',
-            lastname: contact.properties.lastname || '',
-            phone: contact.properties.phone || '',
-            jobtitle: contact.properties.jobtitle || '',
-            company: contact.properties.company || '',
-            field_of_study: contact.properties.field_of_study || '',
-            military_status: contact.properties.military_status || 'Activo',
-            matricula_escolar: contact.properties.matricula_escolar || '',
-            city: contact.properties.city || '',
-            state: contact.properties.state || '',
-            country: contact.properties.country || '',
-            message: contact.properties.message || '',
-            asunto: contact.properties.asunto || '',
-            hs_linkedin_url: contact.properties.hs_linkedin_url || ''
-        };
-      
-      
-      const token = jwt.sign(userData, JWT_SECRET, { expiresIn: '8h' });
-
-        return res.status(200).json({
-            success: true,
-            message: `¡Bienvenido, ${userData.firstname || 'Ejecutivo'}!`,
-            token: token,
-            user: userData
-        });
-
-    } catch (error) {
-        console.error('Error en login:', error.body || error);
-        return res.status(500).json({ success: false, message: 'Error en la verificación de credenciales.' });
+    if (!match) {
+      return res.status(401).json({
+        success: false,
+        message: 'Credenciales incorrectas.'
+      });
     }
+
+    // Lista explícita: no incluir password_hash en la respuesta ni en el JWT.
+    const userData = {
+      id: contact.id,
+      email: contact.properties.email,
+      firstname: contact.properties.firstname || '',
+      lastname: contact.properties.lastname || '',
+      phone: contact.properties.phone || '',
+      jobtitle: contact.properties.jobtitle || '',
+      company: contact.properties.company || '',
+      field_of_study: contact.properties.field_of_study || '',
+      military_status: contact.properties.military_status || 'Activo',
+      matricula_escolar: contact.properties.matricula_escolar || '',
+      city: contact.properties.city || '',
+      state: contact.properties.state || '',
+      country: contact.properties.country || '',
+      message: contact.properties.message || '',
+      asunto: contact.properties.asunto || '',
+      hs_linkedin_url: contact.properties.hs_linkedin_url || ''
+    };
+
+    const token = jwt.sign(userData, JWT_SECRET, {
+      expiresIn: '8h'
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `¡Bienvenido, ${userData.firstname || 'Ejecutivo'}!`,
+      token,
+      user: userData
+    });
+  } catch (error) {
+    // No registrar contraseñas, hashes ni el cuerpo completo del error.
+    console.error('Error en login:', {
+      status: error.statusCode ?? error.code ?? 'UNKNOWN'
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error en la verificación de credenciales.'
+    });
+  }
 });
 
 // --- API PERFIL (AUTENTICADO) ---
 app.get('/api/profile', (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, message: 'Token no provisto.' });
-    }
+  const authHeader = req.headers.authorization;
 
-    const token = authHeader.split(' ')[1];
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        return res.status(200).json({ success: true, user: decoded });
-    } catch (err) {
-        return res.status(401).json({ success: false, message: 'Sesión expirada o inválida.' });
-    }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token no provisto.'
+    });
+  }
+
+  const token = authHeader.slice(7).trim();
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token no provisto.'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    return res.status(200).json({
+      success: true,
+      user: decoded
+    });
+  } catch (err) {
+    return res.status(401).json({
+      success: false,
+      message: 'Sesión expirada o inválida.'
+    });
+  }
 });
 
 // --- API REGISTRO IN-HOUSE ---
 app.post('/api/reginhouse', async (req, res) => {
-  const { email, password, firstname, lastname, phone, city, state, country, message, jobtitle, company, field_of_study,asunto,hs_linkedin_url } = req.body;
+  const {
+    email,
+    password,
+    firstname,
+    lastname,
+    phone,
+    city,
+    state,
+    country,
+    message,
+    jobtitle,
+    company,
+    field_of_study,
+    asunto,
+    hs_linkedin_url
+  } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email y contraseña requeridos.' });
+  if (
+    typeof email !== 'string' ||
+    !email.trim() ||
+    typeof password !== 'string' ||
+    !password
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email y contraseña requeridos.'
+    });
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Buscar si el contacto existe
+    // 1. Buscar si el contacto existe.
+    // Se solicita password_hash explícitamente para comprobar
+    // si el contacto ya tiene acceso activado.
     const searchRequest = {
-      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-      properties: CONTACT_PROPERTIES,
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: 'email',
+              operator: 'EQ',
+              value: cleanEmail
+            }
+          ]
+        }
+      ],
+      properties: ['email', 'password_hash'],
       limit: 1
     };
 
-    const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
+    const searchApiResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/objects/2026-03/contacts/search',
+      body: searchRequest
+    });
 
-    if (searchResponse.results.length > 0) {
-      const existingContact = searchResponse.results[0];
+    const searchResponse = await searchApiResponse.json();
 
-      if (existingContact.properties.password_hash) {
-        return res.status(409).json({ success: false, message: 'Este correo ya tiene acceso activado.' });
-      }
+    const existingContact = searchResponse.results[0];
 
-      await hubspotClient.crm.contacts.basicApi.update(existingContact.id, {
-        properties: {
-          password_hash: hashedPassword,
-          military_status: 'Activo',
-          ...(firstname && { firstname }),
-          ...(lastname && { lastname }),
-          ...(phone && { phone }),
-          ...(city && { city }),
-          ...(state && { state }),
-          ...(country && { country }),
-          ...(message && { message }),
-          ...(asunto && { asunto }),
-          ...(jobtitle && { jobtitle }),
-          ...(company && { company }),
-          ...(field_of_study && { field_of_study }),
-          ...(asunto && { asunto }),
-          ...(hs_linkedin_url && { hs_linkedin_url })
-        }
+    if (existingContact?.properties?.password_hash) {
+      return res.status(409).json({
+        success: false,
+        message: 'Este correo ya tiene acceso activado.'
       });
-
-      return res.status(200).json({ success: true, message: 'Acceso activado correctamente.' });
     }
 
-    // 2. Crear un nuevo contacto
-    const properties = {
-      email: cleanEmail,
-      firstname: firstname || '',
-      lastname: lastname || '',
-      password_hash: hashedPassword,
-      military_status: 'Activo',
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Propiedades opcionales compartidas por creación y actualización.
+    const optionalProperties = {
+      ...(firstname && { firstname }),
+      ...(lastname && { lastname }),
       ...(phone && { phone }),
       ...(city && { city }),
       ...(state && { state }),
@@ -432,26 +701,70 @@ app.post('/api/reginhouse', async (req, res) => {
       ...(jobtitle && { jobtitle }),
       ...(company && { company }),
       ...(field_of_study && { field_of_study }),
-      ...(asunto && { asunto }),
       ...(hs_linkedin_url && { hs_linkedin_url })
     };
 
-    const apiResponse = await hubspotClient.crm.contacts.basicApi.create({ properties });
+    // 2. Actualizar el contacto existente.
+    // IMPORTANTE: antes de activar el acceso, debes verificar
+    // que la persona controla el correo mediante un enlace
+    // o código de verificación de un solo uso.
+    if (existingContact) {
+      await hubspotClient.apiRequest({
+        method: 'PATCH',
+        path:
+          '/crm/objects/2026-03/contacts/' +
+          encodeURIComponent(existingContact.id),
+        body: {
+          properties: {
+            password_hash: hashedPassword,
+            military_status: 'Activo',
+            ...optionalProperties
+          }
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Acceso activado correctamente.'
+      });
+    }
+
+    // 3. Crear un nuevo contacto.
+    const properties = {
+      email: cleanEmail,
+      firstname: firstname || '',
+      lastname: lastname || '',
+      password_hash: hashedPassword,
+      military_status: 'Activo',
+      ...optionalProperties
+    };
+
+    const createApiResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/objects/2026-03/contacts',
+      body: {
+        properties,
+        associations: []
+      }
+    });
+
+    const createdContact = await createApiResponse.json();
 
     return res.status(201).json({
       success: true,
       message: 'Usuario registrado con éxito.',
-      id: apiResponse.id
+      id: createdContact.id
     });
-
   } catch (error) {
-    // ESTA LÍNEA MOSTRARÁ EL ERROR REAL EN RENDER
-    const hubspotError = error.body?.message || error.message || error;
-    console.error('CRÍTICO - Error HubSpot CRM:', JSON.stringify(error.body || error, null, 2));
+    // Evita registrar el cuerpo completo de la solicitud
+    // o del error: podría contener información sensible.
+    console.error('Error en registro de contacto en HubSpot:', {
+      status: error.statusCode ?? error.code ?? 'UNKNOWN'
+    });
 
     return res.status(500).json({
       success: false,
-      message: `Error en HubSpot: ${hubspotError}`
+      message: 'No se pudo completar el registro. Intenta nuevamente.'
     });
   }
 });
@@ -461,13 +774,28 @@ app.post('/api/companies', async (req, res) => {
   const { name, domain } = req.body;
 
   try {
-    const response = await hubspotClient.crm.companies.basicApi.create({
-      properties: { name, domain }
+    const apiResponse = await hubspotClient.apiRequest({
+      method: 'POST',
+      path: '/crm/objects/2026-03/companies',
+      body: {
+        properties: { name, domain },
+        associations: []
+      }
     });
-    return res.status(201).json({ success: true, company: response });
+
+    const company = await apiResponse.json();
+
+    return res.status(201).json({
+      success: true,
+      company
+    });
   } catch (error) {
     console.error('Error creando empresa:', error.body || error);
-    return res.status(500).json({ success: false, message: 'Error creando empresa en HubSpot.' });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error creando empresa en HubSpot.'
+    });
   }
 });
 
@@ -488,13 +816,13 @@ app.post('/api/deals', async (req, res) => {
 
     // Asociar el negocio con el Contacto si se provee contactId
     if (contactId) {
-      await hubspotClient.crm.associations.v4.basicApi.createDefault(
-        'deal',
-        dealResponse.id,
-        'contact',
-        contactId
-      );
-    }
+    await hubspotClient.apiRequest({
+      method: 'PUT',
+      path:
+        `/crm/objects/2026-03/deal/${encodeURIComponent(dealResponse.id)}` +
+        `/associations/default/contact/${encodeURIComponent(contactId)}`
+    });
+  }
 
     return res.status(201).json({ success: true, deal: dealResponse });
   } catch (error) {
@@ -519,12 +847,12 @@ app.post('/api/tickets', async (req, res) => {
     });
 
     if (contactId) {
-      await hubspotClient.crm.associations.v4.basicApi.createDefault(
-        'ticket',
-        ticketResponse.id,
-        'contact',
-        contactId
-      );
+    await hubspotClient.apiRequest({
+      method: 'PUT',
+      path:
+        `/crm/objects/2026-03/ticket/${encodeURIComponent(ticketResponse.id)}` +
+        `/associations/default/contact/${encodeURIComponent(contactId)}`
+      });
     }
 
     return res.status(201).json({ success: true, ticket: ticketResponse });
