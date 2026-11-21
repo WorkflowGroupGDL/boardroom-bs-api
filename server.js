@@ -864,6 +864,157 @@ app.post('/api/tickets', async (req, res) => {
   }
 });
 
+// --- CURSOS: Cursos inscritos ---
+app.get('/api/my-courses', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token no provisto.'
+    });
+  }
+
+  const token = authHeader.slice(7).trim();
+  let decoded;
+
+  // 1. Verificar la sesión.
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+
+    if (
+      !decoded ||
+      typeof decoded !== 'object' ||
+      decoded.purpose ||
+      typeof decoded.exp !== 'number' ||
+      !/^\d+$/.test(String(decoded.id || ''))
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: 'Sesión inválida.'
+      });
+    }
+  } catch {
+    return res.status(401).json({
+      success: false,
+      message: 'Sesión expirada o inválida.'
+    });
+  }
+
+  try {
+    // El alumno se obtiene del JWT verificado,
+    // nunca de un identificador enviado por el navegador.
+    const contactId = String(decoded.id);
+    const courseIds = new Set();
+    let after;
+
+    // 2. Recuperar todas las páginas de asociaciones.
+    do {
+      const query = new URLSearchParams({
+        limit: '100'
+      });
+
+      if (after !== undefined) {
+        query.set('after', after);
+      }
+
+      const associationResponse = await hubspotClient.apiRequest({
+        method: 'GET',
+        path:
+          `/crm/objects/2026-03/0-1/` +
+          `${encodeURIComponent(contactId)}/associations/0-410` +
+          `?${query.toString()}`
+      });
+
+      const associationData = await associationResponse.json();
+
+      if (!Array.isArray(associationData.results)) {
+        throw new Error('Respuesta de asociaciones inválida.');
+      }
+
+      for (const association of associationData.results) {
+        if (association.toObjectId == null) {
+          throw new Error('Asociación sin identificador de curso.');
+        }
+
+        courseIds.add(String(association.toObjectId));
+      }
+
+      const nextAfter = associationData.paging?.next?.after;
+
+      after =
+        nextAfter === undefined || nextAfter === null
+          ? undefined
+          : String(nextAfter);
+    } while (after !== undefined);
+
+    if (courseIds.size === 0) {
+      return res.status(200).json({
+        success: true,
+        courses: []
+      });
+    }
+
+    // 3. Consultar los detalles en lotes de hasta 100.
+    const ids = [...courseIds];
+    const courses = [];
+
+    for (let index = 0; index < ids.length; index += 100) {
+      const batch = ids.slice(index, index + 100);
+
+      const courseResponse = await hubspotClient.apiRequest({
+        method: 'POST',
+        path: '/crm/objects/2026-03/courses/batch/read',
+        body: {
+          properties: [
+            'hs_course_name',
+            'hs_course_id',
+            'hs_course_description'
+          ],
+          inputs: batch.map(id => ({ id }))
+        }
+      });
+
+      const courseData = await courseResponse.json();
+
+      // No presentar una consulta fallida o parcial como lista completa.
+      if (
+        !Array.isArray(courseData.results) ||
+        courseData.errors?.length ||
+        (courseData.status && courseData.status !== 'COMPLETE') ||
+        courseData.results.length !== batch.length
+      ) {
+        throw new Error('No se pudieron recuperar todos los cursos.');
+      }
+
+      for (const course of courseData.results) {
+        courses.push({
+          id: String(course.id),
+          name: course.properties?.hs_course_name || '',
+          code: course.properties?.hs_course_id || '',
+          description: course.properties?.hs_course_description || ''
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      courses
+    });
+  } catch (error) {
+    console.error('Error consultando cursos del alumno:', {
+      status: error.statusCode ?? error.code ?? 'UNKNOWN'
+    });
+
+    return res.status(502).json({
+      success: false,
+      message: 'No se pudieron consultar tus cursos.'
+    });
+  }
+});
+
 // --- WEBHOOKS: Recibir actualizaciones desde HubSpot ---
 app.post('/api/webhooks/hubspot', (req, res) => {
   const events = req.body; // HubSpot envía un array de eventos
@@ -877,6 +1028,8 @@ app.post('/api/webhooks/hubspot', (req, res) => {
   // Responder 200 OK inmediatamente para confirmar recepción a HubSpot
   res.status(200).send('EVENT_RECEIVED');
 });
+
+
 
 // TERMINO DE LA API DE USUARIOS DE LA PAGINA WEB
 
