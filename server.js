@@ -142,89 +142,129 @@ app.post('/api/register', async (req, res) => {
 });
 
 
-// --- API CAMBIAR CONTRASEÑA (PARA RENDER.COM) ---
-// --- API CAMBIAR CONTRASEÑA (EXPRESS PARA RENDER.COM) ---
-app.post('/api/change-password', async (req, res) => {
-  // Aseguramos de inmediato que el navegador reciba un JSON pase lo que pase
-  res.setHeader('Content-Type', 'application/json');
+// --- API RECUPERACIÓN DE CONTRASEÑA - PASO 1: VERIFICAR IDENTIDAD Y GENERAR TOKEN ---
+app.post('/api/forgot-password', async (req, res) => {
+  const { email, phone } = req.body;
 
-  const { email, currentPassword, newPassword } = req.body;
-
-  // 1. Validaciones de campos obligatorios
-  if (!email || !currentPassword || !newPassword) {
+  if (!email) {
     return res.status(400).json({ 
       success: false, 
-      message: 'El correo, la contraseña actual y la nueva contraseña son requeridos.' 
+      message: 'El correo electrónico es obligatorio.' 
     });
   }
 
   try {
     const cleanEmail = email.trim().toLowerCase();
-
-    // 2. Ejecutar la búsqueda en HubSpot (Estructura idéntica a tu /api/register)
     const searchRequest = {
       filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-      properties: ['email', 'password_hash'],
+      properties: ['email', 'phone', 'mobilephone', 'password_hash'],
       limit: 1
     };
 
     const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
 
-    // Validar existencia en el CRM
-    if (!searchResponse || !searchResponse.results || searchResponse.results.length === 0) {
+    if (!searchResponse.results || searchResponse.results.length === 0) {
       return res.status(404).json({ 
         success: false, 
-        message: 'El usuario no existe en la base de datos de Boardroom.' 
+        message: 'No encontramos una cuenta asociada a este correo.' 
       });
     }
 
-    // Acceso seguro al índice [0] del array sin romper el hilo de Node.js
-    const contact = searchResponse.results[0]; 
-    const currentHash = contact.properties ? contact.properties.password_hash : null;
+    const contact = searchResponse.results[0];
 
-    if (!currentHash) {
-      return res.status(400).json({ 
+    // Validación extra de seguridad: comprobar si el teléfono coincide con el registrado en HubSpot
+    // (Si no deseas validar teléfono, puedes eliminar este bloque if)
+    const registeredPhone = contact.properties.phone || contact.properties.mobilephone;
+    if (registeredPhone && phone) {
+      const cleanInputPhone = phone.replace(/\D/g, '');
+      const cleanRegPhone = registeredPhone.replace(/\D/g, '');
+      if (!cleanRegPhone.endsWith(cleanInputPhone.slice(-4))) {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Los datos de verificación no coinciden con nuestros registros.' 
+        });
+      }
+    }
+
+    // Generar un token temporal de recuperación válido por 15 minutos
+    const resetToken = jwt.sign(
+      { contactId: contact.id, email: cleanEmail, purpose: 'password_reset' },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    // NOTA: Aquí puedes integrar Nodemailer o Resend para enviar este token por correo.
+    // Por ahora, se devuelve en la respuesta para que tu frontend lo use en el Paso 2.
+    return res.status(200).json({
+      success: true,
+      message: 'Identidad verificada. Utiliza el token para restablecer tu contraseña.',
+      resetToken
+    });
+
+  } catch (error) {
+    const hubspotError = error.body?.message || error.message || String(error);
+    console.error('Error en forgot-password:', hubspotError);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error al procesar la solicitud de recuperación.' 
+    });
+  }
+});
+
+// --- API RECUPERACIÓN DE CONTRASEÑA - PASO 2: ESTABLECER NUEVA CONTRASEÑA ---
+app.post('/api/reset-password', async (req, res) => {
+  const { resetToken, newPassword } = req.body;
+
+  if (!resetToken || !newPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'El token de recuperación y la nueva contraseña son requeridos.' 
+    });
+  }
+
+  try {
+    // 1. Verificar que el token sea válido y no haya expirado
+    const decoded = jwt.verify(resetToken, JWT_SECRET);
+
+    if (decoded.purpose !== 'password_reset') {
+      return res.status(403).json({ 
         success: false, 
-        message: 'Este usuario no tiene un acceso activo en el portal. Regístrese primero.' 
+        message: 'Token inválido para esta operación.' 
       });
     }
 
-    // 3. Verificación de la contraseña mediante el Bcrypt tradicional
-    const isPasswordValid = await bcrypt.compare(currentPassword, currentHash);
-    if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'La contraseña actual introducida es incorrecta.' 
-      });
-    }
-
-    // 4. Generar el nuevo hash seguro para la nueva credencial
+    // 2. Encriptar la nueva contraseña
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // 5. Actualizar el password_hash en HubSpot usando el API básico
-    await hubspotClient.crm.contacts.basicApi.update(contact.id, {
+    // 3. Sobrescribir password_hash en HubSpot
+    await hubspotClient.crm.contacts.basicApi.update(decoded.contactId, {
       properties: {
         password_hash: hashedNewPassword
       }
     });
 
-    // Envío del JSON de éxito definitivo al formulario web
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Contraseña actualizada con éxito en la plataforma.' 
+    return res.status(200).json({
+      success: true,
+      message: 'Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión.'
     });
 
   } catch (error) {
-    // Extracción limpia del error para evitar crasheos por referencias circulares en los logs de Render
-    const hubspotError = error.body?.message || error.message || String(error);
-    console.error('CRÍTICO - Error en Servidor Render:', hubspotError);
+    if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'El enlace o token de recuperación ha expirado o es inválido.' 
+      });
+    }
 
-    return res.status(500).json({
-      success: false,
-      message: `Error interno en el servidor de Render: ${hubspotError}`
+    const hubspotError = error.body?.message || error.message || String(error);
+    console.error('Error en reset-password:', hubspotError);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error interno al actualizar la contraseña en HubSpot.' 
     });
   }
 });
+
 
 
 
@@ -498,81 +538,6 @@ app.post('/api/webhooks/hubspot', (req, res) => {
 });
 
 // TERMINO DE LA API DE USUARIOS DE LA PAGINA WEB
-
-
-  //-------------------------------------------------------------------------------------------------------
-
-
-// INICIO DE LA API DE LOS EVENTOS PAGINA DE INICIO
-
-// LEER EVENTOS PAGINA DE INICIO
-app.get('/api/eventos', (req, res) => {
-  const rutaArchivo = path.join(__dirname, 'eventos.json');
-  
-  fs.readFile(rutaArchivo, 'utf8', (err, data) => {
-    if (err) {
-      return res.status(500).json({ error: 'No se pudo leer la base de datos de eventos.' });
-    }
-    res.json(JSON.parse(data));
-  });
-});
-
-// TERMINO DE LA API DE LOS EVENTOS PAGINA DE INICIO
-
-
-
-//-------------------------------------------------------------------------------------------------------
-
-
-
-// INICIO DE LA API DE LOS CURSOS CORTOS
-// LEER CURSOS
-app.get('/api/cursos', (req, res) => {
-  const rutaArchivo = path.join(__dirname, 'cursos.json');
-  
-  fs.readFile(rutaArchivo, 'utf8', (err, data) => {
-    if (err) {
-      return res.status(500).json({ error: 'No se pudo leer la base de datos de cursos.' });
-    }
-    res.json(JSON.parse(data));
-  });
-});
-
-// NUEVO - API: Obtener un solo curso por su ID
-app.get('/api/cursos/:id', (req, res) => {
-  const cursoId = parseInt(req.params.id);
-
-  fs.readFile(CURSOS_FILE, 'utf8', (err, data) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error al leer los datos de los cursos.' });
-    }
-
-    const cursos = JSON.parse(data);
-    const cursoEncontrado = cursos.find(c => c.id === cursoId);
-
-    if (!cursoEncontrado) {
-      return res.status(404).json({ error: 'El curso solicitado no existe.' });
-    }
-
-    res.json(cursoEncontrado);
-  });
-});
-
-// app.get('/api/cursos', async (req, res) => {
-//   try {
-//     // Realizamos la consulta a la tabla 'diplomados'
-//     const resultado = await pool.query('SELECT * FROM diplomados ORDER BY fecha ASC');
-    
-//     // Devolvemos las filas obtenidas en formato JSON
-//     res.json(resultado.rows);
-//   } catch (err) {
-//     console.error('Error al consultar la base de datos:', err);
-//     res.status(500).json({ error: 'No se pudo leer la base de datos de cursos.' });
-//   }
-// });
-
-// TERMINO DE LA API DE LOS CURSOS CORTOS
-
 
 //-------------------------------------------------------------------------------------------------------
 
