@@ -144,7 +144,7 @@ app.post('/api/register', async (req, res) => {
 
 // --- API RECUPERACIÓN DE CONTRASEÑA - PASO 1: VERIFICAR IDENTIDAD Y GENERAR TOKEN ---
 app.post('/api/forgot-password', async (req, res) => {
-  const { email, phone } = req.body;
+  const { email } = req.body;
 
   if (!email) {
     return res.status(400).json({ 
@@ -157,7 +157,7 @@ app.post('/api/forgot-password', async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const searchRequest = {
       filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: cleanEmail }] }],
-      properties: ['email', 'phone', 'mobilephone', 'password_hash'],
+      properties: ['email', 'firstname', 'password_hash'],
       limit: 1
     };
 
@@ -170,42 +170,54 @@ app.post('/api/forgot-password', async (req, res) => {
       });
     }
 
-    // CORRECCIÓN AQUÍ: Agregado el índice [0]
     const contact = searchResponse.results[0];
+    const nombre = contact.properties?.firstname || 'Ejecutivo';
 
-    const registeredPhone = contact.properties?.phone || contact.properties?.mobilephone;
-    if (registeredPhone && phone) {
-      const cleanInputPhone = phone.replace(/\D/g, '');
-      const cleanRegPhone = registeredPhone.replace(/\D/g, '');
-      if (!cleanRegPhone.endsWith(cleanInputPhone.slice(-4))) {
-        return res.status(401).json({ 
-          success: false, 
-          message: 'Los datos de verificación no coinciden con nuestros registros.' 
-        });
-      }
-    }
-
+    // 1. Generar token válido por 15 minutos
     const resetToken = jwt.sign(
       { contactId: contact.id, email: cleanEmail, purpose: 'password_reset' },
       JWT_SECRET,
       { expiresIn: '15m' }
     );
 
+    // 2. Construir la URL hacia la página de tu frontend donde pondrá su nueva contraseña
+    const frontendUrl = process.env.FRONTEND_URL || 'https://boardroom-business.school.com';
+    const resetLink = `${frontendUrl}/restablecer-password.html?token=${resetToken}`;
+
+    // 3. Enviar el correo electrónico
+    await resend.emails.send({
+      from: 'Boardroom Business School <onboarding@resend.dev>', // Cambia esto por tu dominio verificado (ej: soporte@tudominio.com)
+      to: cleanEmail,
+      subject: 'Restablece tu contraseña - Boardroom Business School',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+          <h2>Hola, ${nombre}</h2>
+          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en Boardroom Business School.</p>
+          <p>Haz clic en el siguiente botón para crear una nueva contraseña (este enlace expira en 15 minutos):</p>
+          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px; margin: 16px 0;">
+            Restablecer Contraseña
+          </a>
+          <p style="font-size: 12px; color: #666;">Si no solicitaste este cambio, puedes ignorar este correo de forma segura.</p>
+        </div>
+      `
+    });
+
+    // Ya no devolvemos el resetToken en el JSON por seguridad
     return res.status(200).json({
       success: true,
-      message: 'Identidad verificada. Utiliza el token para restablecer tu contraseña.',
-      resetToken
+      message: 'Te hemos enviado un correo electrónico con las instrucciones para restablecer tu contraseña.'
     });
 
   } catch (error) {
-    const hubspotError = error.body?.message || error.message || String(error);
-    console.error('Error en forgot-password:', hubspotError);
+    const errorMsg = error.body?.message || error.message || String(error);
+    console.error('Error en forgot-password:', errorMsg);
     return res.status(500).json({ 
       success: false, 
-      message: 'Error al procesar la solicitud de recuperación.' 
+      message: 'Error al enviar el correo de recuperación.' 
     });
   }
 });
+
 
 
 // --- API RECUPERACIÓN DE CONTRASEÑA - PASO 2: ESTABLECER NUEVA CONTRASEÑA ---
