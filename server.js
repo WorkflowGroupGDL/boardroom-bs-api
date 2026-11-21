@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const DATA_FILE = path.join(__dirname, 'blogs.json');
 const { Pool } = require('pg');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const app = express();
 
@@ -186,7 +188,7 @@ app.post('/api/forgot-password', async (req, res) => {
 
     // 3. Enviar el correo electrónico
     await resend.emails.send({
-      from: 'Boardroom Business School <onboarding@resend.dev>', // Cambia esto por tu dominio verificado (ej: soporte@tudominio.com)
+      from: 'Boardroom Business School <soporte@boardroom-business.school>', // Cambia esto por tu dominio verificado (ej: soporte@tudominio.com)
       to: cleanEmail,
       subject: 'Restablece tu contraseña - Boardroom Business School',
       html: `
