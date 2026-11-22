@@ -44,9 +44,6 @@
       { "titulo": "Indicadores del Programa", "url": "/director/kpis", "icono": "fa-chart-line" },
       { "titulo": "Gestor de Clases (JSON)", "url": "/editor/clases", "icono": "fa-file-code" },
       { "titulo": "Biblioteca de Casos", "url": "/editor/casos", "icono": "fa-archive" },
-      { "titulo": "Guías y Documentos", "url": "/editor/guias", "icono": "fa-file-alt" },
-      { "titulo": "Gestor de Clases (JSON)", "url": "/editor/clases", "icono": "fa-file-code" },
-      { "titulo": "Biblioteca de Casos", "url": "/editor/casos", "icono": "fa-archive" },
       { "titulo": "Guías y Documentos", "url": "/editor/guias", "icono": "fa-file-alt" }
     ],
     "SuperAdmin": [
