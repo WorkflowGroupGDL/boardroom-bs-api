@@ -492,7 +492,8 @@ app.post('/api/login', async (req, res) => {
       'country',
       'message',
       'asunto',
-      'hs_linkedin_url'
+      'hs_linkedin_url',
+      'user_role'
     ];
 
     const searchRequest = {
@@ -557,7 +558,8 @@ app.post('/api/login', async (req, res) => {
       country: contact.properties.country || '',
       message: contact.properties.message || '',
       asunto: contact.properties.asunto || '',
-      hs_linkedin_url: contact.properties.hs_linkedin_url || ''
+      hs_linkedin_url: contact.properties.hs_linkedin_url || '',
+      user_role: contact.properties.user_role || ''
     };
 
     const token = jwt.sign(userData, JWT_SECRET, {
@@ -1030,6 +1032,9 @@ app.post('/api/webhooks/hubspot', (req, res) => {
 });
 
 
+// --- MENUS: Los Menus del Dashboard ---
+const menusRoutes = require('./src/routes/menus.routes');
+app.use('/api/menus', menusRoutes);
 
 // TERMINO DE LA API DE USUARIOS DE LA PAGINA WEB
 
