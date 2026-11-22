@@ -15,7 +15,8 @@
       { "titulo": "Mis Programas Activos", "url": "/alumno/programas", "icono": "fa-graduation-cap" },
       { "titulo": "Calendario de Clases", "url": "/alumno/calendario", "icono": "fa-calendar" },
       { "titulo": "Casos y Material", "url": "/alumno/materiales", "icono": "fa-folder-open" },
-      { "titulo": "Calificaciones", "url": "/alumno/calificaciones", "icono": "fa-award" }
+      { "titulo": "Calificaciones", "url": "/alumno/calificaciones", "icono": "fa-award" },
+      { "titulo": "Calificar Docente", "url": "/alumno/calificar-docente", "icono": "fa-check" }
     ],
     "Alumni": [
       { "titulo": "Directorio Networking", "url": "/alumni/directorio", "icono": "fa-users" },
