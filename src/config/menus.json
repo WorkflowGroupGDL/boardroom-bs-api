@@ -1,56 +1,56 @@
 {
     "Admision": [
-      { "titulo": "Proceso de Admisión", "url": "/admision/proceso", "icono": "bi-clipboard-check" },
-      { "titulo": "Subir Documentación", "url": "/admision/documentos", "icono": "bi-file-earmark-arrow-up" },
-      { "titulo": "Agendar Entrevista", "url": "/admision/entrevista", "icono": "bi-calendar-event" },
-      { "titulo": "Estatus de Solicitud", "url": "/admision/estatus", "icono": "bi-hourglass-split" }
+      { "titulo": "Proceso de Admisión", "url": "/admision/proceso", "icono": "fa-clipboard-check" },
+      { "titulo": "Subir Documentación", "url": "/admision/documentos", "icono": "fa-file-upload" },
+      { "titulo": "Agendar Entrevista", "url": "/admision/entrevista", "icono": "fa-calendar-alt" },
+      { "titulo": "Estatus de Solicitud", "url": "/admision/estatus", "icono": "fa-hourglass-half" }
     ],
     "Cliente": [
-      { "titulo": "Catálogo de Programas", "url": "/programas", "icono": "bi-book" },
-      { "titulo": "Educación Ejecutiva", "url": "/ejecutiva", "icono": "bi-briefcase" },
-      { "titulo": "Mis Cotizaciones / Pagos", "url": "/cliente/pagos", "icono": "bi-credit-card" },
-      { "titulo": "Contacto Asesor", "url": "/cliente/soporte", "icono": "bi-headset" }
+      { "titulo": "Catálogo de Programas", "url": "/programas", "icono": "fa-book" },
+      { "titulo": "Educación Ejecutiva", "url": "/ejecutiva", "icono": "fa-briefcase" },
+      { "titulo": "Mis Cotizaciones / Pagos", "url": "/cliente/pagos", "icono": "fa-credit-card" },
+      { "titulo": "Contacto Asesor", "url": "/cliente/soporte", "icono": "fa-headset" }
     ],
     "Alumno": [
-      { "titulo": "Mis Programas Activos", "url": "/alumno/programas", "icono": "bi-mortarboard" },
-      { "titulo": "Calendario de Clases", "url": "/alumno/calendario", "icono": "bi-calendar3" },
-      { "titulo": "Casos y Material", "url": "/alumno/materiales", "icono": "bi-folder2-open" },
-      { "titulo": "Calificaciones", "url": "/alumno/calificaciones", "icono": "bi-award" }
+      { "titulo": "Mis Programas Activos", "url": "/alumno/programas", "icono": "fa-graduation-cap" },
+      { "titulo": "Calendario de Clases", "url": "/alumno/calendario", "icono": "fa-calendar" },
+      { "titulo": "Casos y Material", "url": "/alumno/materiales", "icono": "fa-folder-open" },
+      { "titulo": "Calificaciones", "url": "/alumno/calificaciones", "icono": "fa-award" }
     ],
     "Alumni": [
-      { "titulo": "Directorio Networking", "url": "/alumni/directorio", "icono": "bi-people" },
-      { "titulo": "Bolsa de Trabajo Ejecutiva", "url": "/alumni/empleos", "icono": "bi-building" },
-      { "titulo": "Eventos y Conferencias", "url": "/alumni/eventos", "icono": "bi-mic" },
-      { "titulo": "Certificados y Constancias", "url": "/alumni/certificados", "icono": "bi-patch-check" }
+      { "titulo": "Directorio Networking", "url": "/alumni/directorio", "icono": "fa-users" },
+      { "titulo": "Bolsa de Trabajo Ejecutiva", "url": "/alumni/empleos", "icono": "fa-building" },
+      { "titulo": "Eventos y Conferencias", "url": "/alumni/eventos", "icono": "fa-microphone" },
+      { "titulo": "Certificados y Constancias", "url": "/alumni/certificados", "icono": "fa-certificate" }
     ],
     "Admin": [
-      { "titulo": "Gestión de Alumnos (HubSpot)", "url": "/admin/alumnos", "icono": "bi-person-lines-fill" },
-      { "titulo": "Control de Inscripciones", "url": "/admin/inscripciones", "icono": "bi-card-checklist" },
-      { "titulo": "Registro de Calificaciones", "url": "/admin/calificaciones", "icono": "bi-journal-check" },
-      { "titulo": "Reportes Académicos", "url": "/admin/reportes", "icono": "bi-bar-chart" }
+      { "titulo": "Gestión de Alumnos (HubSpot)", "url": "/admin/alumnos", "icono": "fa-address-book" },
+      { "titulo": "Control de Inscripciones", "url": "/admin/inscripciones", "icono": "fa-tasks" },
+      { "titulo": "Registro de Calificaciones", "url": "/admin/calificaciones", "icono": "fa-check-double" },
+      { "titulo": "Reportes Académicos", "url": "/admin/reportes", "icono": "fa-chart-bar" }
     ],
     "Editor": [
-      { "titulo": "Gestor de Clases (JSON)", "url": "/editor/clases", "icono": "bi-file-code" },
-      { "titulo": "Biblioteca de Casos", "url": "/editor/casos", "icono": "bi-archive" },
-      { "titulo": "Guías y Documentos", "url": "/editor/guias", "icono": "bi-file-earmark-richtext" }
+      { "titulo": "Gestor de Clases (JSON)", "url": "/editor/clases", "icono": "fa-file-code" },
+      { "titulo": "Biblioteca de Casos", "url": "/editor/casos", "icono": "fa-archive" },
+      { "titulo": "Guías y Documentos", "url": "/editor/guias", "icono": "fa-file-alt" }
     ],
     "Director": [
-      { "titulo": "Mis Clases Asignadas", "url": "/director/clases", "icono": "bi-easel" },
-      { "titulo": "Guía del Director", "url": "/director/guias", "icono": "bi-journal-bookmark" },
-      { "titulo": "Evaluación de Participantes", "url": "/director/evaluaciones", "icono": "bi-check2-square" },
-      { "titulo": "Indicadores del Programa", "url": "/director/kpis", "icono": "bi-graph-up" }
+      { "titulo": "Mis Clases Asignadas", "url": "/director/clases", "icono": "fa-chalkboard-teacher" },
+      { "titulo": "Guía del Director", "url": "/director/guias", "icono": "fa-book-open" },
+      { "titulo": "Evaluación de Participantes", "url": "/director/evaluaciones", "icono": "fa-check-square" },
+      { "titulo": "Indicadores del Programa", "url": "/director/kpis", "icono": "fa-chart-line" }
     ],
     "SuperAdmin": [
-      { "titulo": "Panel Global", "url": "/superadmin/dashboard", "icono": "bi-speedometer2" },
-      { "titulo": "Gestión de Roles y Usuarios", "url": "/superadmin/usuarios", "icono": "bi-shield-lock" },
-      { "titulo": "Sincronización HubSpot", "url": "/superadmin/hubspot", "icono": "bi-arrow-repeat" },
-      { "titulo": "Configuración del Sistema", "url": "/superadmin/config", "icono": "bi-gear" }
+      { "titulo": "Panel Global", "url": "/superadmin/dashboard", "icono": "fa-tachometer-alt" },
+      { "titulo": "Gestión de Roles y Usuarios", "url": "/superadmin/usuarios", "icono": "fa-user-shield" },
+      { "titulo": "Sincronización HubSpot", "url": "/superadmin/hubspot", "icono": "fa-sync" },
+      { "titulo": "Configuración del Sistema", "url": "/superadmin/config", "icono": "fa-cog" }
     ],
     "Docente": [
-      { "titulo": "Mis Cursos Impartidos", "url": "/docente/cursos", "icono": "bi-person-video3" },
-      { "titulo": "Material y Casos de Clase", "url": "/docente/materiales", "icono": "bi-journal-text" },
-      { "titulo": "Lista de Asistencia", "url": "/docente/asistencia", "icono": "bi-list-check" },
-      { "titulo": "Captura de Calificaciones", "url": "/docente/calificaciones", "icono": "bi-pencil-square" }
+      { "titulo": "Mis Cursos Impartidos", "url": "/docente/cursos", "icono": "fa-chalkboard" },
+      { "titulo": "Material y Casos de Clase", "url": "/docente/materiales", "icono": "fa-book-reader" },
+      { "titulo": "Lista de Asistencia", "url": "/docente/asistencia", "icono": "fa-clipboard-list" },
+      { "titulo": "Captura de Calificaciones", "url": "/docente/calificaciones", "icono": "fa-edit" }
     ]
   }
   
