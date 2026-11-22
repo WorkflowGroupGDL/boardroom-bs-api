@@ -6,8 +6,8 @@
       { "titulo": "Estatus de Solicitud", "url": "/admision/estatus", "icono": "fa-hourglass-half" }
     ],
     "Cliente": [
-      { "titulo": "Catálogo de Programas", "url": "/programas", "icono": "fa-book" },
-      { "titulo": "Educación Ejecutiva", "url": "/ejecutiva", "icono": "fa-briefcase" },
+      { "titulo": "Catálogo de Programas", "url": "/cliente/programas", "icono": "fa-book" },
+      { "titulo": "Educación Ejecutiva", "url": "/cliente/ejecutiva", "icono": "fa-briefcase" },
       { "titulo": "Mis Cotizaciones / Pagos", "url": "/cliente/pagos", "icono": "fa-credit-card" },
       { "titulo": "Contacto Asesor", "url": "/cliente/soporte", "icono": "fa-headset" }
     ],
@@ -43,9 +43,10 @@
       { "titulo": "Guía del Director", "url": "/director/guias", "icono": "fa-book-open" },
       { "titulo": "Evaluación de Participantes", "url": "/director/evaluaciones", "icono": "fa-check-square" },
       { "titulo": "Indicadores del Programa", "url": "/director/kpis", "icono": "fa-chart-line" },
-      { "titulo": "Gestor de Clases (JSON)", "url": "/editor/clases", "icono": "fa-file-code" },
-      { "titulo": "Biblioteca de Casos", "url": "/editor/casos", "icono": "fa-archive" },
-      { "titulo": "Guías y Documentos", "url": "/editor/guias", "icono": "fa-file-alt" }
+      { "titulo": "Gestor de Clases (JSON)", "url": "/director/clases", "icono": "fa-file-code" },
+      { "titulo": "Biblioteca de Casos", "url": "/director/casos", "icono": "fa-archive" },
+      { "titulo": "Guías y Documentos", "url": "/director/guias", "icono": "fa-file-alt" },
+      { "titulo": "Alertas Alumnos", "url": "/director/alertas", "icono": "fa-book-reader" }
     ],
     "SuperAdmin": [
       { "titulo": "Panel Global", "url": "/superadmin/dashboard", "icono": "fa-tachometer-alt" },
